@@ -1,0 +1,19 @@
+# 環境變數(含金鑰,絕不上傳)
+.env
+
+# Python
+venv/
+__pycache__/
+*.pyc
+.Python
+
+# IDE
+.vscode/
+.idea/
+
+# 作業系統
+.DS_Store
+Thumbs.db
+
+# 日誌
+*.log
