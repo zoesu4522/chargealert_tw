@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ChargeAlert TW · 充電站即時監控</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0e14;
+    --panel: #121821;
+    --panel-2: #1a2230;
+    --line: #243044;
+    --text: #e6edf3;
+    --muted: #7d8da3;
+    --green: #2ee6a6;   /* 空閒/可用 */
+    --amber: #ffb454;   /* 使用中 */
+    --red: #ff6b6b;     /* 離線 */
+    --cyan: #38bdf8;
+    --accent: #2ee6a6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background:
+      radial-gradient(900px 500px at 85% -10%, rgba(46,230,166,0.08), transparent 60%),
+      radial-gradient(700px 400px at 0% 0%, rgba(56,189,248,0.06), transparent 55%),
+      var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+    min-height: 100vh;
+    padding: 32px clamp(16px, 4vw, 56px);
+  }
+  header {
+    display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;
+    border-bottom: 1px solid var(--line); padding-bottom: 20px; margin-bottom: 28px;
+  }
+  header .logo {
+    font-size: 26px; font-weight: 800; letter-spacing: 0.5px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  header .logo .bolt { color: var(--accent); }
+  header .sub { color: var(--muted); font-size: 14px; }
+  header .live {
+    margin-left: auto; font-size: 13px; color: var(--green);
+    display: flex; align-items: center; gap: 7px;
+  }
+  header .live .dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--green);
+    box-shadow: 0 0 0 0 rgba(46,230,166,0.6); animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(46,230,166,0.5); }
+    70% { box-shadow: 0 0 0 8px rgba(46,230,166,0); }
+    100% { box-shadow: 0 0 0 0 rgba(46,230,166,0); }
+  }
+
+  .kpis {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 16px; margin-bottom: 24px;
+  }
+  .kpi {
+    background: linear-gradient(160deg, var(--panel-2), var(--panel));
+    border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px;
+    position: relative; overflow: hidden;
+    animation: rise 0.5s ease both;
+  }
+  .kpi::after {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: var(--bar, var(--accent));
+  }
+  .kpi .label { color: var(--muted); font-size: 13px; margin-bottom: 8px; }
+  .kpi .value { font-size: 38px; font-weight: 800; line-height: 1; }
+  .kpi .unit { font-size: 14px; color: var(--muted); margin-left: 4px; font-weight: 500; }
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+  .grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+  }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+    padding: 22px 24px; animation: rise 0.6s ease both;
+  }
+  .card h2 {
+    font-size: 16px; font-weight: 700; margin-bottom: 4px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card .hint { color: var(--muted); font-size: 12px; margin-bottom: 16px; }
+  .card .chart-wrap { position: relative; height: 300px; }
+  .card.wide { grid-column: 1 / -1; }
+  .card.wide .chart-wrap { height: 360px; }
+
+  footer {
+    margin-top: 28px; color: var(--muted); font-size: 12px; text-align: center;
+    border-top: 1px solid var(--line); padding-top: 18px;
+  }
+  .err {
+    background: rgba(255,180,84,0.12); border: 1px solid rgba(255,180,84,0.4);
+    color: var(--amber); padding: 10px 14px; border-radius: 10px;
+    font-size: 13px; margin-bottom: 20px; display: none;
+  }
+</style>
+</head>
+<body>
+  <header>
+    <div class="logo"><span class="bolt">⚡</span> ChargeAlert TW</div>
+    <div class="sub">電動車充電站即時監控後台</div>
+    <div class="live"><span class="dot"></span> 即時資料</div>
+  </header>
+
+  <div id="errBox" class="err"></div>
+
+  <section class="kpis" id="kpis"></section>
+
+  <section class="grid">
+    <div class="card">
+      <h2>🔌 充電槍狀態分布</h2>
+      <div class="hint">目前所有監測站點的即時狀態占比</div>
+      <div class="chart-wrap"><canvas id="statusChart"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>⚡ AC / DC 可用概況</h2>
+      <div class="hint">慢充(AC)與快充(DC)的可用 vs 總數(依 IEC 62196 分類)</div>
+      <div class="chart-wrap"><canvas id="acdcChart"></canvas></div>
+    </div>
+    <div class="card wide">
+      <h2>🏆 可用充電槍最多的站(Top 10)</h2>
+      <div class="hint">目前空閒槍數最多的充電站排名</div>
+      <div class="chart-wrap"><canvas id="topChart"></canvas></div>
+    </div>
+  </section>
+
+  <footer>
+    ChargeAlert TW · 資料來源 TDX 運輸資料流通服務 · 每次重新整理為當下即時狀態
+  </footer>
+
+<script>
+const C = {
+  green: '#2ee6a6', amber: '#ffb454', red: '#ff6b6b',
+  cyan: '#38bdf8', muted: '#7d8da3', line: '#243044', text: '#e6edf3'
+};
+Chart.defaults.color = C.muted;
+Chart.defaults.font.family = '"Segoe UI","PingFang TC","Microsoft JhengHei",sans-serif';
+Chart.defaults.borderColor = C.line;
+
+// 本機預覽用的 fallback 範例資料(API 連不到時顯示,讓你開檔就看得到長相)
+const SAMPLE = {
+  stats: { station_count: 354, total: 1577, available: 1128,
+           ac_available: 980, ac_total: 1300, dc_available: 148, dc_total: 277 },
+  distribution: [
+    { status: 1, label: '空閒', count: 1128 },
+    { status: 2, label: '使用中', count: 245 },
+    { status: 3, label: '離線', count: 204 },
+  ],
+  stations: [
+    { station_name: '南崁公一地下停車場', available: 24, total: 28 },
+    { station_name: '藝文園區地下停車場(北)', available: 12, total: 15 },
+    { station_name: '中壢中油內壢站', available: 10, total: 14 },
+    { station_name: '桃園長庚醫院', available: 9, total: 12 },
+    { station_name: 'A21環北站停車場', available: 8, total: 10 },
+  ],
+};
+
+async function getJSON(path, fallback) {
+  try {
+    const r = await fetch(path);
+    if (!r.ok) throw new Error(r.status);
+    return await r.json();
+  } catch (e) {
+    document.getElementById('errBox').style.display = 'block';
+    document.getElementById('errBox').textContent =
+      '⚠ 目前顯示的是範例資料(連不到後端 API)。部署到 EC2 後會自動顯示即時資料。';
+    return fallback;
+  }
+}
+
+function kpiCard(label, value, unit, color) {
+  return `<div class="kpi" style="--bar:${color}">
+    <div class="label">${label}</div>
+    <div class="value">${value.toLocaleString()}<span class="unit">${unit}</span></div>
+  </div>`;
+}
+
+async function render() {
+  // --- KPI + AC/DC ---
+  const s = await getJSON('/api/stats', SAMPLE.stats);
+  document.getElementById('kpis').innerHTML =
+    kpiCard('監測站點', s.station_count, '站', C.cyan) +
+    kpiCard('充電槍總數', s.total, '支', C.text) +
+    kpiCard('目前可用', s.available, '支', C.green) +
+    kpiCard('使用中 + 離線', s.total - s.available, '支', C.amber);
+
+  new Chart(document.getElementById('acdcChart'), {
+    type: 'bar',
+    data: {
+      labels: ['AC 慢充', 'DC 快充'],
+      datasets: [
+        { label: '可用', data: [s.ac_available, s.dc_available],
+          backgroundColor: C.green, borderRadius: 6 },
+        { label: '總數', data: [s.ac_total, s.dc_total],
+          backgroundColor: 'rgba(125,141,163,0.35)', borderRadius: 6 },
+      ],
+    },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom' } },
+      scales: { y: { beginAtZero: true, grid: { color: C.line } }, x: { grid: { display: false } } } },
+  });
+
+  // --- 狀態分布圓餅 ---
+  const d = (await getJSON('/api/status-distribution', { distribution: SAMPLE.distribution })).distribution;
+  const colorByStatus = { 1: C.green, 2: C.amber, 3: C.red };
+  new Chart(document.getElementById('statusChart'), {
+    type: 'doughnut',
+    data: {
+      labels: d.map(x => x.label),
+      datasets: [{ data: d.map(x => x.count),
+        backgroundColor: d.map(x => colorByStatus[x.status] || C.muted),
+        borderColor: C.line, borderWidth: 2 }],
+    },
+    options: { responsive: true, maintainAspectRatio: false, cutout: '62%',
+      plugins: { legend: { position: 'bottom' } } },
+  });
+
+  // --- Top 10 橫條 ---
+  const t = (await getJSON('/api/top-stations', { stations: SAMPLE.stations })).stations;
+  new Chart(document.getElementById('topChart'), {
+    type: 'bar',
+    data: {
+      labels: t.map(x => x.station_name),
+      datasets: [{ label: '可用槍數', data: t.map(x => x.available),
+        backgroundColor: C.green, borderRadius: 6 }],
+    },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { afterLabel: (ctx) => '總數 ' + t[ctx.dataIndex].total + ' 支' } } },
+      scales: { x: { beginAtZero: true, grid: { color: C.line } }, y: { grid: { display: false } } } },
+  });
+}
+render();
+</script>
+</body>
+</html>

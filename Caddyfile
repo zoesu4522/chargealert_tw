@@ -1,12 +1,29 @@
-# Caddy 會自動幫這個網域向 Let's Encrypt 申請憑證、到期前自動續約,
-# 完全不用你手動管憑證。
+# Caddy 自動向 Let's Encrypt 申請憑證、自動續約。
 #
-# 前提(必須先成立,Caddy 才申請得到憑證):
-#   1. chargealert.zoesu.dev 的 A 紀錄已指向這台機器的 Elastic IP
-#   2. 安全群組已開放 inbound 80 和 443
+# 路由分三類,都在同一個網域底下:
+#   /webhook   -> FastAPI(接收 LINE 訊息)
+#   /api/*     -> FastAPI(儀表板資料 API)
+#   /dashboard -> 靜態 HTML 儀表板(零 build,Caddy 直接吐檔案)
 #
-# reverse_proxy 把外面進來的請求轉給內部的 webhook 服務(docker 網路用服務名互連)。
+# 順序重要:Caddy 會用最精確的 matcher,但這裡明確分開寫最清楚。
 
 chargealert.zoesu.dev {
-    reverse_proxy webhook:8000
+    # 後台儀表板(靜態檔案)
+    handle_path /dashboard* {
+        root * /srv/dashboard
+        file_server
+    }
+
+    # LINE webhook + 儀表板 API 都轉給 FastAPI
+    handle /webhook {
+        reverse_proxy webhook:8000
+    }
+    handle /api/* {
+        reverse_proxy webhook:8000
+    }
+
+    # 其餘(含首頁健康檢查 /)也交給 FastAPI
+    handle {
+        reverse_proxy webhook:8000
+    }
 }
