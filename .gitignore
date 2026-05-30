@@ -17,3 +17,5 @@ Thumbs.db
 
 # 日誌
 *.log
+
+chargealert-key.pem*.pem
