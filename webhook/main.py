@@ -156,3 +156,25 @@ async def webhook(
     events = payload.get("events", [])
     background_tasks.add_task(handle_events, events)
     return {"status": "ok"}
+
+
+# ===== 後台儀表板 API =====
+# 前端靜態頁面(/dashboard)會 fetch 這些端點拿資料。
+# 之後天氣 API 也加在這裡(例如 /api/weather),前端打同一個後端。
+
+@app.get("/api/stats")
+async def api_stats():
+    """整體統計:給 KPI 數字卡 + AC/DC 長條圖用。"""
+    return db.get_overall_stats()
+
+
+@app.get("/api/status-distribution")
+async def api_status_distribution():
+    """狀態分布:給圓餅圖用(空閒/使用中/離線)。"""
+    return {"distribution": db.get_status_distribution()}
+
+
+@app.get("/api/top-stations")
+async def api_top_stations():
+    """可用數最多的站排名:給 Top 10 橫條圖用。"""
+    return {"stations": db.get_top_available_stations(limit=10)}

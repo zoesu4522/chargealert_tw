@@ -126,3 +126,69 @@ def get_station_stats(station_id):
         return _summarize(rows)
     finally:
         conn.close()
+
+# ===== 以下為後台儀表板用的查詢 =====
+
+# 狀態碼對照:1=空閒、2=使用中、3=離線
+STATUS_LABELS = {1: "空閒", 2: "使用中", 3: "離線"}
+
+
+def get_status_distribution():
+    """
+    狀態分布:各狀態(空閒/使用中/離線)各有幾支槍。
+    回傳 [{"status": 1, "label": "空閒", "count": 1128}, ...]
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """SELECT current_status, COUNT(*) AS cnt
+                   FROM connector_status
+                   GROUP BY current_status
+                   ORDER BY current_status"""
+            )
+            rows = cursor.fetchall()
+        return [
+            {
+                "status": r["current_status"],
+                "label": STATUS_LABELS.get(r["current_status"], "其他"),
+                "count": r["cnt"],
+            }
+            for r in rows
+        ]
+    finally:
+        conn.close()
+
+
+def get_top_available_stations(limit=10):
+    """
+    可用槍數最多的站排名(Top N)。給儀表板的橫條圖用。
+    available = 該站 current_status=1 的槍數;total = 該站總槍數。
+    回傳 [{"station_name", "available", "total"}, ...] 依 available 由多到少。
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """SELECT s.station_name AS station_name,
+                          SUM(CASE WHEN c.current_status = 1 THEN 1 ELSE 0 END) AS available,
+                          COUNT(*) AS total
+                   FROM connector_status c
+                   JOIN station_info s ON c.station_id = s.station_id
+                   GROUP BY c.station_id, s.station_name
+                   ORDER BY available DESC
+                   LIMIT %s""",
+                (limit,),
+            )
+            rows = cursor.fetchall()
+        # SUM 回傳的是 Decimal,轉成 int 方便前端用
+        return [
+            {
+                "station_name": r["station_name"],
+                "available": int(r["available"]),
+                "total": int(r["total"]),
+            }
+            for r in rows
+        ]
+    finally:
+        conn.close()
