@@ -40,7 +40,12 @@ def send_line_message(text):
 def notify_available(changes):
     """把「變成空閒」的充電槍組成 Flex 卡片通知"""
     import db
-
+    import config
+    if not config.LINE_NOTIFY_ENABLED:
+        available_count = sum(1 for c in changes if c["new_status"] == 1)
+        if available_count > 0:
+            print(f"📵 LINE 推播已停用(開發模式),本來要通知 {available_count} 個空位")
+        return 0
     available = [c for c in changes if c["new_status"] == 1]
     if not available:
         print("📭 沒有新的空位,不發通知")
