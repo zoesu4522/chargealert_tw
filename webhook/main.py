@@ -17,6 +17,7 @@ import logging
 import httpx
 from fastapi import FastAPI, Request, Header, HTTPException, BackgroundTasks
 from dotenv import load_dotenv
+from weather import get_weather
 
 import db
 import bedrock_client
@@ -161,6 +162,10 @@ async def webhook(
 # ===== 後台儀表板 API =====
 # 前端靜態頁面(/dashboard)會 fetch 這些端點拿資料。
 # 之後天氣 API 也加在這裡(例如 /api/weather),前端打同一個後端。
+
+@app.get("/api/weather")
+def api_weather():
+    return get_weather()
 
 @app.get("/api/stats")
 async def api_stats():
