@@ -71,32 +71,32 @@
     padding: 0 clamp(1rem, 4vw, 3.5rem) 2rem;
   }
 
-  /* ===== Header(sticky 固定頂端) ===== */
+  /* ===== Header(sticky 固定頂端,尺寸用 px 固定,不受 A−/A/A+ 字級縮放影響) ===== */
   header {
     position: sticky; top: 0; z-index: 50;
-    display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
     border-bottom: 1px solid var(--line);
-    padding: 1.1rem clamp(1rem, 4vw, 3.5rem) 1.1rem;
-    margin-bottom: 1.75rem;
+    padding: 18px clamp(16px, 4vw, 56px);
+    margin-bottom: 28px;
     background: color-mix(in srgb, var(--bg) 88%, transparent);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
   }
-  .brand { display: flex; align-items: center; gap: 0.6rem; }
-  .brand .logo { font-size: 1.6rem; font-weight: 800; letter-spacing: 0.5px; display: flex; align-items: center; gap: 0.5rem; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand .logo { font-size: 26px; font-weight: 800; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
   .brand .logo .bolt { color: var(--accent); }
-  .brand .sub { color: var(--muted); font-size: 0.85rem; }
+  .brand .sub { color: var(--muted); font-size: 14px; }
   @media (max-width: 560px) { .brand .sub { display: none; } }
 
-  .controls { margin-left: auto; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-  .live { font-size: 0.8rem; color: var(--green); display: flex; align-items: center; gap: 0.4rem; margin-right: 0.25rem; }
+  .controls { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .live { font-size: 13px; color: var(--green); display: flex; align-items: center; gap: 6px; margin-right: 4px; }
   .live .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
   @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(22,163,74,0.5);} 70%{box-shadow:0 0 0 8px rgba(22,163,74,0);} 100%{box-shadow:0 0 0 0 rgba(22,163,74,0);} }
 
   .btn-group { display: flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--panel); }
   .btn-group button {
     border: none; background: transparent; color: var(--muted); cursor: pointer;
-    padding: 0.4rem 0.7rem; font-size: 0.85rem; font-weight: 600; transition: all 0.15s;
+    padding: 6px 11px; font-size: 13.5px; font-weight: 600; transition: all 0.15s;
     font-family: inherit;
   }
   .btn-group button:hover { color: var(--text); }
@@ -104,7 +104,7 @@
   html[data-theme="dark"] .btn-group button.active { color: #0a0e14; }
   .icon-btn {
     border: 1px solid var(--line); background: var(--panel); color: var(--text); cursor: pointer;
-    width: 2.2rem; height: 2.2rem; border-radius: 999px; font-size: 1rem; transition: all 0.15s;
+    width: 35px; height: 35px; border-radius: 999px; font-size: 16px; transition: all 0.15s;
     display: flex; align-items: center; justify-content: center;
   }
   .icon-btn:hover { border-color: var(--accent); }
@@ -140,13 +140,19 @@
     .chart-wrap.tall { height: 380px; }
   }
 
+  /* ===== Footer(尺寸固定 px;用 flex 自動換行,每段不從中間斷字) ===== */
   footer {
     flex-shrink: 0;
-    color: var(--muted); font-size: 0.75rem; text-align: center;
+    color: var(--muted); font-size: 12px;
     border-top: 1px solid var(--line);
-    padding: 1.1rem clamp(1rem, 4vw, 3.5rem);
-    line-height: 1.6;
+    padding: 16px clamp(16px, 4vw, 56px);
+    line-height: 1.7;
+    display: flex; flex-wrap: wrap; justify-content: center; align-items: center;
+    column-gap: 10px; row-gap: 2px;
   }
+  footer .foot-seg { white-space: nowrap; }      /* 每段整段一起換行,不會斷在詞中間 */
+  footer .foot-dot { color: var(--line); }        /* 分隔點 */
+  @media (max-width: 560px) { footer .foot-dot { display: none; } }  /* 窄螢幕收起分隔點,排版更乾淨 */
   .err { background: rgba(217,119,6,0.12); border: 1px solid rgba(217,119,6,0.4); color: var(--amber); padding: 0.7rem 0.9rem; border-radius: 10px; font-size: 0.82rem; margin-bottom: 1.25rem; display: none; }
 </style>
 </head>
@@ -191,7 +197,13 @@
     </section>
   </main>
 
-  <footer>ChargeAlert TW · 資料來源 TDX 運輸資料流通服務 · 每次重新整理為當下即時狀態</footer>
+  <footer>
+    <span class="foot-seg">ChargeAlert TW</span>
+    <span class="foot-dot">·</span>
+    <span class="foot-seg">資料來源 TDX 運輸資料流通服務</span>
+    <span class="foot-dot">·</span>
+    <span class="foot-seg">每次重新整理為當下即時狀態</span>
+  </footer>
 
 <script>
 // ===== 主題 & 字級切換 =====
