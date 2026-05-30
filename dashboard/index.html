@@ -64,23 +64,29 @@
     display: flex; flex-direction: column;
     transition: background 0.3s, color 0.3s;
   }
-  /* 主要內容區:padding 移到這裡,並用 flex:1 把 footer 推到底 */
+  /* 主要內容區:套用與 header 相同的 max-width 並置中,讓內容與 logo 切齊 */
   .page {
     flex: 1 0 auto;
     width: 100%;
-    padding: 0 clamp(1rem, 4vw, 3.5rem) 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 clamp(16px, 4vw, 56px) 2rem;
   }
 
-  /* ===== Header(sticky 固定頂端,尺寸用 px 固定,不受 A−/A/A+ 字級縮放影響) ===== */
+  /* ===== Header(sticky 固定頂端;bar 滿版,內容收進置中容器) ===== */
   header {
     position: sticky; top: 0; z-index: 50;
-    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
     border-bottom: 1px solid var(--line);
-    padding: 18px clamp(16px, 4vw, 56px);
     margin-bottom: 28px;
     background: color-mix(in srgb, var(--bg) 88%, transparent);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
+  }
+  /* 內容容器:超過 max-width 後就置中,左右留白;尺寸用 px 固定,不受 A−/A/A+ 影響 */
+  .header-inner {
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    max-width: 1400px; margin: 0 auto;
+    padding: 18px clamp(16px, 4vw, 56px);
   }
   .brand { display: flex; align-items: center; gap: 10px; }
   .brand .logo { font-size: 26px; font-weight: 800; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
@@ -158,18 +164,20 @@
 </head>
 <body>
   <header>
-    <div class="brand">
-      <div class="logo"><span class="bolt">⚡</span> ChargeAlert TW</div>
-      <div class="sub">電動車充電站即時監控後台</div>
-    </div>
-    <div class="controls">
-      <span class="live"><span class="dot"></span> 即時資料</span>
-      <div class="btn-group" id="sizeGroup">
-        <button data-size="sm">A−</button>
-        <button data-size="md" class="active">A</button>
-        <button data-size="lg">A+</button>
+    <div class="header-inner">
+      <div class="brand">
+        <div class="logo"><span class="bolt">⚡</span> ChargeAlert TW</div>
+        <div class="sub">電動車充電站即時監控後台</div>
       </div>
-      <button class="icon-btn" id="themeBtn" title="切換主題">🌙</button>
+      <div class="controls">
+        <span class="live"><span class="dot"></span> 即時資料</span>
+        <div class="btn-group" id="sizeGroup">
+          <button data-size="sm">A−</button>
+          <button data-size="md" class="active">A</button>
+          <button data-size="lg">A+</button>
+        </div>
+        <button class="icon-btn" id="themeBtn" title="切換主題">🌙</button>
+      </div>
     </div>
   </header>
 
