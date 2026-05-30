@@ -33,6 +33,7 @@ DB_NAME = os.getenv("DB_NAME", "chargealert")
 # ===== LINE Messaging API 設定 =====
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 LINE_USER_ID = os.getenv("LINE_USER_ID")
+LINE_NOTIFY_ENABLED = os.getenv("LINE_NOTIFY_ENABLED", "true").lower() == "true"
 
 def check_config():
     """檢查必要的設定有沒有填,沒填就提醒"""
