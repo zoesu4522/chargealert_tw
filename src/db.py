@@ -105,6 +105,7 @@ def upsert_connectors(connectors):
 def upsert_stations(stations):
     conn = get_connection()
     count = 0
+    skipped_coords = 0
     try:
         with conn.cursor() as cursor:
             for s in stations:
@@ -113,6 +114,15 @@ def upsert_stations(stations):
                 loc = s.get("Location", {}).get("Address", {})
                 if loc:
                     addr = f"{loc.get('City','')}{loc.get('Town','')}{loc.get('Road','')}{loc.get('No','')}"
+
+                # 取座標 + 台灣經緯度範圍防呆(來源偶有異常值,超範圍就存 NULL,避免整批掛掉)
+                lat = s.get("PositionLat")
+                lon = s.get("PositionLon")
+                if lat is None or not (20 <= lat <= 27):
+                    lat = None
+                    skipped_coords += 1
+                if lon is None or not (118 <= lon <= 123):
+                    lon = None
 
                 cursor.execute(
                     """INSERT INTO station_info
@@ -132,8 +142,8 @@ def upsert_stations(stations):
                         s.get("StationName", {}).get("Zh_tw", ""),
                         s.get("Description", ""),
                         s.get("OperatorID", ""),
-                        s.get("PositionLat"),
-                        s.get("PositionLon"),
+                        lat,
+                        lon,
                         addr,
                         s.get("ChargingRate", ""),
                         s.get("ParkingRate", ""),
@@ -143,6 +153,8 @@ def upsert_stations(stations):
                 )
                 count += 1
         conn.commit()
+        if skipped_coords:
+            print(f"  有 {skipped_coords} 個站座標異常或缺漏,已存為 NULL")
         return count
     except Exception as e:
         conn.rollback()
@@ -163,7 +175,7 @@ def get_station_info(station_id):
             return cursor.fetchone()
     finally:
         conn.close()
-        
+
 # 充電槍類型分類(依據 IEC 62196 國際標準)
 AC_TYPES = (1, 2, 3)   # J1772, Type2, Type3 → 交流 AC 慢充
 DC_TYPES = (4, 5, 6)   # CHAdeMO, CCS, LEVDC → 直流 DC 快充
