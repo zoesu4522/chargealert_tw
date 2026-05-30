@@ -115,6 +115,21 @@
   }
   .icon-btn:hover { border-color: var(--accent); }
 
+  /* ===== 手機版 / 平板(≤768px):header 內容垂直堆疊並置中,360px 也適用 ===== */
+  @media (max-width: 768px) {
+    .header-inner {
+      flex-direction: column;   /* 品牌在上、控制鈕在下 */
+      align-items: center;      /* 整體置中 */
+      gap: 12px;
+    }
+    .brand { justify-content: center; flex-wrap: wrap; }   /* logo 與副標置中,必要時換行 */
+    .controls {
+      margin-left: 0;           /* 取消桌機版往右推的 margin-left:auto */
+      width: 100%;
+      justify-content: center;  /* 控制鈕整排置中 */
+    }
+  }
+
   /* ===== KPI ===== */
   .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
   .kpi {
