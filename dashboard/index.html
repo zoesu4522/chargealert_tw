@@ -50,7 +50,8 @@
   html[data-size="lg"] { --scale: 1.15; }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html { font-size: calc(16px * var(--scale)); }
+  /* 字級用 transition 讓 A-/A/A+ 平滑變化,消除瞬間縮放的不適感 */
+  html { font-size: calc(16px * var(--scale)); transition: font-size 0.25s ease; }
   body {
     background:
       radial-gradient(900px 500px at 85% -10%, var(--bg-grad-1), transparent 60%),
@@ -58,15 +59,28 @@
       var(--bg);
     color: var(--text);
     font-family: "Segoe UI", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+    /* flex 直向版面:撐滿視窗高度,讓 footer 能黏在底部 */
     min-height: 100vh;
-    padding: 2rem clamp(1rem, 4vw, 3.5rem);
+    display: flex; flex-direction: column;
     transition: background 0.3s, color 0.3s;
   }
+  /* 主要內容區:padding 移到這裡,並用 flex:1 把 footer 推到底 */
+  .page {
+    flex: 1 0 auto;
+    width: 100%;
+    padding: 0 clamp(1rem, 4vw, 3.5rem) 2rem;
+  }
 
-  /* ===== Header ===== */
+  /* ===== Header(sticky 固定頂端) ===== */
   header {
+    position: sticky; top: 0; z-index: 50;
     display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
-    border-bottom: 1px solid var(--line); padding-bottom: 1.25rem; margin-bottom: 1.75rem;
+    border-bottom: 1px solid var(--line);
+    padding: 1.1rem clamp(1rem, 4vw, 3.5rem) 1.1rem;
+    margin-bottom: 1.75rem;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
   }
   .brand { display: flex; align-items: center; gap: 0.6rem; }
   .brand .logo { font-size: 1.6rem; font-weight: 800; letter-spacing: 0.5px; display: flex; align-items: center; gap: 0.5rem; }
@@ -126,7 +140,13 @@
     .chart-wrap.tall { height: 380px; }
   }
 
-  footer { margin-top: 1.75rem; color: var(--muted); font-size: 0.75rem; text-align: center; border-top: 1px solid var(--line); padding-top: 1.1rem; }
+  footer {
+    flex-shrink: 0;
+    color: var(--muted); font-size: 0.75rem; text-align: center;
+    border-top: 1px solid var(--line);
+    padding: 1.1rem clamp(1rem, 4vw, 3.5rem);
+    line-height: 1.6;
+  }
   .err { background: rgba(217,119,6,0.12); border: 1px solid rgba(217,119,6,0.4); color: var(--amber); padding: 0.7rem 0.9rem; border-radius: 10px; font-size: 0.82rem; margin-bottom: 1.25rem; display: none; }
 </style>
 </head>
@@ -147,27 +167,29 @@
     </div>
   </header>
 
-  <div id="errBox" class="err"></div>
+  <main class="page">
+    <div id="errBox" class="err"></div>
 
-  <section class="kpis" id="kpis"></section>
+    <section class="kpis" id="kpis"></section>
 
-  <section class="grid">
-    <div class="card">
-      <h2>🔌 充電槍狀態分布</h2>
-      <div class="hint">目前所有監測站點的即時狀態占比</div>
-      <div class="chart-wrap"><canvas id="statusChart"></canvas></div>
-    </div>
-    <div class="card">
-      <h2>⚡ AC / DC 可用概況</h2>
-      <div class="hint">慢充(AC)與快充(DC)的可用 vs 總數(依 IEC 62196 分類)</div>
-      <div class="chart-wrap"><canvas id="acdcChart"></canvas></div>
-    </div>
-    <div class="card wide">
-      <h2>🏆 可用充電槍最多的站(Top 10)</h2>
-      <div class="hint">目前空閒槍數最多的充電站排名</div>
-      <div class="chart-wrap tall"><canvas id="topChart"></canvas></div>
-    </div>
-  </section>
+    <section class="grid">
+      <div class="card">
+        <h2>🔌 充電槍狀態分布</h2>
+        <div class="hint">目前所有監測站點的即時狀態占比</div>
+        <div class="chart-wrap"><canvas id="statusChart"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>⚡ AC / DC 可用概況</h2>
+        <div class="hint">慢充(AC)與快充(DC)的可用 vs 總數(依 IEC 62196 分類)</div>
+        <div class="chart-wrap"><canvas id="acdcChart"></canvas></div>
+      </div>
+      <div class="card wide">
+        <h2>🏆 可用充電槍最多的站(Top 10)</h2>
+        <div class="hint">目前空閒槍數最多的充電站排名</div>
+        <div class="chart-wrap tall"><canvas id="topChart"></canvas></div>
+      </div>
+    </section>
+  </main>
 
   <footer>ChargeAlert TW · 資料來源 TDX 運輸資料流通服務 · 每次重新整理為當下即時狀態</footer>
 
