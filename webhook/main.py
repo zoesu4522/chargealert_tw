@@ -169,19 +169,17 @@ def api_weather():
 
 @app.get("/api/stats")
 async def api_stats():
-    """整體統計:給 KPI 數字卡 + AC/DC 長條圖用。"""
     return db.get_overall_stats()
 
 
 @app.get("/api/status-distribution")
 async def api_status_distribution():
-    """狀態分布:給圓餅圖用(空閒/使用中/離線)。"""
     return {"distribution": db.get_status_distribution()}
 
 
 @app.get("/api/top-stations")
 async def api_top_stations():
-    """可用數最多的站排名:給 Top 10 橫條圖用。"""
+    return {"stations": db.get_top_available_stations(limit=10)}
     
 @app.get("/api/history")
 async def api_history(hours: int = 24, type: str = "ALL"):
@@ -191,3 +189,8 @@ async def api_history(hours: int = 24, type: str = "ALL"):
         ptype = "ALL"
     hours = max(1, min(hours, 24 * 14))   # 限制 1 小時 ~ 14 天,防亂查
     return {"history": db.get_history(hours=hours, power_type=ptype)}
+
+@app.get("/api/activity")
+async def api_activity(hours: int = 48):
+    hours = max(1, min(hours, 24 * 14))   # 限制 1 小時 ~ 14 天
+    return {"activity": db.get_activity(hours=hours)}

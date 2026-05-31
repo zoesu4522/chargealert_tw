@@ -210,3 +210,22 @@ def get_history(hours=24, power_type="ALL"):
         ]
     finally:
         conn.close()
+
+#變化活躍度:最近 N 小時內,每小時發生幾次狀態變化(讀 status_history)。
+def get_activity(hours=48):
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """SELECT DATE_FORMAT(changed_at, '%%Y-%%m-%%d %%H:00:00') AS bucket,
+                          COUNT(*) AS changes
+                   FROM status_history
+                   WHERE changed_at >= NOW() - INTERVAL %s HOUR
+                   GROUP BY bucket
+                   ORDER BY bucket ASC""",
+                (hours,),
+            )
+            rows = cursor.fetchall()
+        return [{"t": r["bucket"], "changes": int(r["changes"])} for r in rows]
+    finally:
+        conn.close()
