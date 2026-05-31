@@ -1,7 +1,6 @@
 CREATE DATABASE IF NOT EXISTS chargealert
   CHARACTER SET utf8mb4
   COLLATE utf8mb4_unicode_ci;
-
 USE chargealert;
 
 CREATE TABLE IF NOT EXISTS connector_status (
@@ -38,9 +37,14 @@ CREATE TABLE IF NOT EXISTS scrape_runs (
     error_message   TEXT
 );
 
+-- station_info:加入 city / district(多縣市架構)。
+-- city  = 縣市英文 code(對應 config.CITY_NAME_MAP,例 Taoyuan)
+-- district = 行政區中文名(從地址抽出,例 中壢),UI 進階篩選備用
 CREATE TABLE IF NOT EXISTS station_info (
     station_id     VARCHAR(100) PRIMARY KEY,
     station_name   VARCHAR(255),
+    city           VARCHAR(50),
+    district       VARCHAR(50),
     description    TEXT,
     operator_id    VARCHAR(100),
     latitude       DECIMAL(10, 7),
@@ -51,5 +55,20 @@ CREATE TABLE IF NOT EXISTS station_info (
     service_time   VARCHAR(255),
     telephone      VARCHAR(50),
     updated_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_name (station_name)
+    INDEX idx_name (station_name),
+    INDEX idx_city (city),
+    INDEX idx_city_district (city, district)
+);
+
+-- availability_snapshot:每次爬蟲輪詢後寫一次彙總快照,趨勢圖的時間序列來源。
+-- 一次寫 3 列(ALL / AC / DC)。狀態碼 1=空閒 2=使用中 3=離線。
+CREATE TABLE IF NOT EXISTS availability_snapshot (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    snapshot_at DATETIME NOT NULL,
+    power_type  VARCHAR(10) NOT NULL,
+    total       INT DEFAULT 0,
+    available   INT DEFAULT 0,
+    in_use      INT DEFAULT 0,
+    offline     INT DEFAULT 0,
+    INDEX idx_type_time (power_type, snapshot_at)
 );

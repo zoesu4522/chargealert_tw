@@ -96,7 +96,12 @@ def upsert_connectors(connectors):
     finally:
         conn.close()
 
-def upsert_stations(stations):
+def upsert_stations(stations, city="Taoyuan"):
+    """
+    寫入/更新充電站基本資料。
+    city:此批站資料所屬縣市的英文 code(例 "Taoyuan"),呼叫端傳入。
+    district:從 TDX 地址的 Town 欄位取得(中文,例「中壢區」)。
+    """
     conn = get_connection()
     count = 0
     skipped_coords = 0
@@ -105,9 +110,14 @@ def upsert_stations(stations):
             for s in stations:
                 #組地址(從Location.Address 的各部分拼起來)
                 addr = ""
+                district = None
                 loc = s.get("Location", {}).get("Address", {})
                 if loc:
                     addr = f"{loc.get('City','')}{loc.get('Town','')}{loc.get('Road','')}{loc.get('No','')}"
+                    #區直接取 TDX 的 Town(比從 address 字串抽乾淨)
+                    town = loc.get("Town")
+                    if town:
+                        district = town
 
                 #取座標+台灣經緯度範圍防呆(來源偶有異常值,超範圍就存 NULL,避免整批掛掉)
                 lat = s.get("PositionLat")
@@ -120,12 +130,14 @@ def upsert_stations(stations):
 
                 cursor.execute(
                     """INSERT INTO station_info
-                       (station_id, station_name, description, operator_id,
-                        latitude, longitude, address, charging_rate,
+                       (station_id, station_name, city, district, description,
+                        operator_id, latitude, longitude, address, charging_rate,
                         parking_rate, service_time, telephone)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                        ON DUPLICATE KEY UPDATE
                        station_name = VALUES(station_name),
+                       city = VALUES(city),
+                       district = VALUES(district),
                        description = VALUES(description),
                        address = VALUES(address),
                        charging_rate = VALUES(charging_rate),
@@ -134,6 +146,8 @@ def upsert_stations(stations):
                     (
                         s["StationID"],
                         s.get("StationName", {}).get("Zh_tw", ""),
+                        city,
+                        district,
                         s.get("Description", ""),
                         s.get("OperatorID", ""),
                         lat,
