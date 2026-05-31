@@ -1,13 +1,3 @@
-"""
-webhook 專用的資料庫查詢模組(只讀)。
-
-跟 scraper 的 src/db.py 刻意分開:
-- scraper 負責「寫入」(抓 TDX -> 寫 MySQL),邏輯複雜
-- webhook 只需要「讀」少數幾個查詢,保持精簡、互不影響
-
-AC/DC 分類沿用 scraper 同一套 IEC 62196 標準,確保兩邊數字一致。
-所有連線都用 charset="utf8mb4",所以中文站名查出來一定正常。
-"""
 
 import os
 import pymysql
@@ -16,7 +6,7 @@ import pymysql
 AC_TYPES = (1, 2, 3)   # J1772, Type2, Type3 -> 交流 AC 慢充
 DC_TYPES = (4, 5, 6)   # CHAdeMO, CCS, LEVDC -> 直流 DC 快充
 
-# 狀態碼:1=空閒可用、2=使用中、3=離線
+#狀態:1=空閒可用、2=使用中、3=離線
 STATUS_AVAILABLE = 1
 
 
@@ -187,6 +177,34 @@ def get_top_available_stations(limit=10):
                 "station_name": r["station_name"],
                 "available": int(r["available"]),
                 "total": int(r["total"]),
+            }
+            for r in rows
+        ]
+    finally:
+        conn.close()
+
+#可用量曲線:最近 N 小時的快照時間序列,給趨勢圖用。
+#power_type: 'ALL' / 'AC' / 'DC'。回傳時間由舊到新。
+def get_history(hours=24, power_type="ALL"):
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """SELECT snapshot_at, total, available, in_use, offline
+                   FROM availability_snapshot
+                   WHERE power_type = %s
+                     AND snapshot_at >= NOW() - INTERVAL %s HOUR
+                   ORDER BY snapshot_at ASC""",
+                (power_type, hours),
+            )
+            rows = cursor.fetchall()
+        return [
+            {
+                "t": r["snapshot_at"].strftime("%Y-%m-%d %H:%M:%S"),
+                "total": r["total"],
+                "available": r["available"],
+                "in_use": r["in_use"],
+                "offline": r["offline"],
             }
             for r in rows
         ]

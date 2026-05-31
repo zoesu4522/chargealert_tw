@@ -159,9 +159,9 @@ async def webhook(
     return {"status": "ok"}
 
 
-# ===== 後台儀表板 API =====
-# 前端靜態頁面(/dashboard)會 fetch 這些端點拿資料。
-# 之後天氣 API 也加在這裡(例如 /api/weather),前端打同一個後端。
+#後台儀表板 API
+#前端靜態頁面(/dashboard)會 fetch 這些端點拿資料。
+#之後天氣 API 也加在這裡(例如 /api/weather),前端打同一個後端。
 
 @app.get("/api/weather")
 def api_weather():
@@ -182,4 +182,12 @@ async def api_status_distribution():
 @app.get("/api/top-stations")
 async def api_top_stations():
     """可用數最多的站排名:給 Top 10 橫條圖用。"""
-    return {"stations": db.get_top_available_stations(limit=10)}
+    
+@app.get("/api/history")
+async def api_history(hours: int = 24, type: str = "ALL"):
+    """可用量曲線:最近 N 小時的時間序列。type=ALL/AC/DC"""
+    ptype = (type or "ALL").upper()
+    if ptype not in ("ALL", "AC", "DC"):
+        ptype = "ALL"
+    hours = max(1, min(hours, 24 * 14))   # 限制 1 小時 ~ 14 天,防亂查
+    return {"history": db.get_history(hours=hours, power_type=ptype)}

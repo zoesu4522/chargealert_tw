@@ -50,7 +50,7 @@ def run_once(city="Taoyuan"):
     finally:
         conn.close()
 
-    #  抓資料
+    #抓資料
     statuses = fetch_live_status(city)
 
     if statuses is None:

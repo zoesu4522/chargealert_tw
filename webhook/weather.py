@@ -27,18 +27,17 @@ import threading
 import urllib.parse
 import urllib.request
 
-# ---- 固定設定(與環境變數無關,可放模組層) ----
+#固定設定
 DATASET = "F-C0032-001"
 BASE_URL = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/" + DATASET
 HTTP_TIMEOUT = 8  # 對外請求逾時秒數
 
-# ---- 記憶體快取(多執行緒安全) ----
+#記憶體快取(多執行緒安全)
 _cache = {"data": None, "ts": 0.0}
 _lock = threading.Lock()
 
-
+#依降雨機率(%) 與天氣現象文字,產生給充電使用者的白話建議。純規則,不經 LLM。
 def _build_advisory(pop, wx):
-    """依降雨機率 PoP(%) 與天氣現象文字,產生給充電使用者的白話建議。純規則,不經 LLM。"""
     try:
         pop_val = int(pop)
     except (TypeError, ValueError):
@@ -52,26 +51,23 @@ def _build_advisory(pop, wx):
         return "天氣大致穩定,適合外出充電。"
     return f"目前天氣:{wx or '資料更新中'}。"
 
-
-def _to_int(s):
-    """把 CWA 回傳的字串數字安全轉成 int,失敗回 None(支援負溫度)。"""
+#把回傳的字串數字安全轉成 int,失敗回 None。
+def _to_int(s):   
     if s is None:
         return None
     s = str(s).strip()
     return int(s) if s.lstrip("-").isdigit() else None
 
-
+#建立 SSL context。預設正常驗證;WEATHER_VERIFY_SSL=0 時關閉驗證(僅供本機憑證鏈異常時用)。
 def _ssl_context():
-    """建立 SSL context。預設正常驗證;WEATHER_VERIFY_SSL=0 時關閉驗證(僅供本機憑證鏈異常時用)。"""
     ctx = ssl.create_default_context()
     if os.getenv("WEATHER_VERIFY_SSL", "1") == "0":
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
     return ctx
 
-
-def _fetch_from_cwa():
-    """實際呼叫 CWA API 並解析「最近一個時段」的天氣。任何失敗都會丟例外,由外層接住。"""
+#實際呼叫 CWA API 並解析「最近一個時段」的天氣。任何失敗都會丟例外,由外層接住。
+def _fetch_from_cwa():  
     api_key = os.getenv("CWA_API_KEY", "")
     location_name = os.getenv("WEATHER_LOCATION", "桃園市")  # 設計上保留擴充,改城市只改環境變數
 
@@ -84,13 +80,13 @@ def _fetch_from_cwa():
     with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT, context=_ssl_context()) as resp:
         raw = json.loads(resp.read().decode("utf-8"))
 
-    # 已用 locationName 過濾,正常只會回一筆;仍做防呆
+    #已用 locationName 過濾,正常只會回一筆;仍做防呆
     locations = raw.get("records", {}).get("location", [])
     if not locations:
         raise ValueError(f"CWA 回傳查無地點:{location_name}")
     location = locations[0]
 
-    # 把 weatherElement 轉成 {elementName: time[]} 方便取用
+    #把 weatherElement 轉成 {elementName: time[]} 方便取用
     elements = {e["elementName"]: e["time"] for e in location["weatherElement"]}
 
     def first_val(name):
@@ -104,7 +100,7 @@ def _fetch_from_cwa():
     min_t = first_val("MinT")  # 最低溫(°C)
     max_t = first_val("MaxT")  # 最高溫(°C)
 
-    # 預報時段起訖(給前端日後顯示「預報區間」用)
+    #預報時段起訖(給前端日後顯示「預報區間」用)
     try:
         period_start = elements["Wx"][0]["startTime"]
         period_end = elements["Wx"][0]["endTime"]
@@ -157,8 +153,8 @@ def get_weather(force_refresh: bool = False):
             _cache["data"] = data
             _cache["ts"] = time.time()
         return {**data, "ok": True, "cached": False}
-    except Exception as e:  # 網路 / 解析 / API 任何問題都走這
-        # 有舊快取就回舊資料(標記 stale),沒有才回失敗 → graceful degradation
+    except Exception as e:  #網路 / 解析 / API 任何問題都走這
+        #有舊快取就回舊資料(標記 stale),沒有才回失敗 → graceful degradation
         with _lock:
             stale = _cache["data"]
         if stale is not None:
@@ -171,8 +167,8 @@ def get_weather(force_refresh: bool = False):
         }
 
 
-# 方便不經 Docker / FastAPI 就單獨測試:
-#   設好環境變數後執行  python weather.py
-# 本機若 SSL 憑證鏈報錯,加 WEATHER_VERIFY_SSL=0
+#方便不經 Docker / FastAPI 就單獨測試:
+#設好環境變數後執行  python weather.py
+#本機若 SSL 憑證鏈報錯,加 WEATHER_VERIFY_SSL=0
 if __name__ == "__main__":
     print(json.dumps(get_weather(force_refresh=True), ensure_ascii=False, indent=2))

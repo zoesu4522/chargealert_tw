@@ -3,12 +3,11 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from fetch_and_save import run_once
 import config
 
-# 抓取間隔(分鐘)
+#抓取間隔(分鐘)
 INTERVAL_MINUTES = 15
 
 
 def job():
-    """排程要執行的工作"""
     try:
         run_once(city=config.TARGET_CITY)
     except Exception as e:

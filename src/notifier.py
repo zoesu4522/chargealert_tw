@@ -1,13 +1,8 @@
 import requests
 import config
 
-
+#推播一則文字訊息給設定的 LINE 使用者/text: 要發送的訊息內容/回傳:成功 True / 失敗 False
 def send_line_message(text):
-    """
-    推播一則文字訊息給設定的 LINE 使用者
-    text: 要發送的訊息內容
-    回傳:成功 True / 失敗 False
-    """
     if not config.LINE_CHANNEL_ACCESS_TOKEN or not config.LINE_USER_ID:
         print("  LINE 設定不完整,請檢查 .env 的 TOKEN 和 USER_ID")
         return False
@@ -36,9 +31,8 @@ def send_line_message(text):
             print(f"   狀態碼:{e.response.status_code}")
             print(f"   回應:{e.response.text[:300]}")
         return False
-
+#把變成空閒的充電槍組成 Flex 卡片通知
 def notify_available(changes):
-    """把「變成空閒」的充電槍組成 Flex 卡片通知"""
     import db
     import config
     if not config.LINE_NOTIFY_ENABLED:
@@ -51,12 +45,11 @@ def notify_available(changes):
         print("📭 沒有新的空位,不發通知")
         return 0
 
-    # 同站合併
     by_station = {}
     for c in available:
         by_station.setdefault(c["station_id"], []).append(c)
 
-    # 為每個站組一張卡片(最多 10 張,LINE carousel 上限 12)
+    #為每個站點組一張卡片(最多 10 張,LINE carousel 上限 12)
     bubbles = []
     for sid in list(by_station.keys())[:10]:
         count = len(by_station[sid])
@@ -84,12 +77,9 @@ def notify_available(changes):
     success = send_line_flex(alt_text, flex_content)
     return len(available) if success else 0
 
+#推播 Flex Message(彈性訊息卡片)/alt_text: 通知列預覽文字(LINE 通知列顯示這個)/flex_content: Flex Message 的 JSON 結構
 def send_line_flex(alt_text, flex_content):
-    """
-    推播 Flex Message(彈性訊息卡片)
-    alt_text: 通知列預覽文字(LINE 通知列顯示這個)
-    flex_content: Flex Message 的 JSON 結構
-    """
+
     if not config.LINE_CHANNEL_ACCESS_TOKEN or not config.LINE_USER_ID:
         print("⚠️  LINE 設定不完整")
         return False
@@ -111,19 +101,18 @@ def send_line_flex(alt_text, flex_content):
     }
 
     try:
-        print("📤 正在發送 LINE Flex 卡片...")
+        print(" 正在發送 LINE Flex 卡片...")
         resp = requests.post(url, headers=headers, json=payload, timeout=10)
         resp.raise_for_status()
-        print("✅ Flex 卡片發送成功!")
+        print(" Flex 卡片發送成功!")
         return True
     except requests.exceptions.RequestException as e:
-        print(f"❌ Flex 發送失敗:{e}")
+        print(f" Flex 發送失敗:{e}")
         if hasattr(e, "response") and e.response is not None:
             print(f"   回應:{e.response.text[:300]}")
         return False
 
 def build_station_bubble(info, count):
-    """組裝一張充電站卡片(重新排版,清爽有層次)"""
     import db
     import re
 
@@ -136,14 +125,14 @@ def build_station_bubble(info, count):
 
     stats = db.get_station_stats(station_id)
 
-    # 費率智慧精簡:從一長串費率裡抓出「X元/度」「X元/分」等關鍵價格
+    #費率智慧精簡:從一長串費率裡抓出「X元/度」「X元/分」等關鍵價格
     def simplify_rate(rate_text):
         if not rate_text:
             return ""
-        # 抓「數字+元+每度/度/分/小時」的片段
+        #抓「數字+元+每度/度/分/小時」的片段
         matches = re.findall(r"\d+(?:\.\d+)?\s*元\s*(?:每度|/度|每分|/分|每小時|/小時)", rate_text)
         if matches:
-            # 去重、最多取 2 個
+            #去重、最多取 2 個
             seen = []
             for m in matches:
                 m = m.replace(" ", "")
@@ -154,7 +143,7 @@ def build_station_bubble(info, count):
 
     rate = simplify_rate(info.get("charging_rate", ""))
 
-    # ===== 頂部綠色橫幅 =====
+    #header綠色橫幅
     header = {
         "type": "box",
         "layout": "vertical",
@@ -171,9 +160,9 @@ def build_station_bubble(info, count):
         ],
     }
 
-    # ===== 主體 =====
+    #body
     body_contents = [
-        # 站名
+        #站名
         {
             "type": "text",
             "text": name,
@@ -184,7 +173,7 @@ def build_station_bubble(info, count):
         },
     ]
 
-    # 地址
+
     if address:
         body_contents.append({
             "type": "text",
@@ -195,7 +184,7 @@ def build_station_bubble(info, count):
             "margin": "sm",
         })
 
-    # ===== 統計區(用淡綠底框包起來)=====
+    #統計區(用淡綠底框包起來)
     def stat_row(icon, label, available, total, is_total=False):
         color = "#2E7D32" if available > 0 else "#BBBBBB"
         label_color = "#333333" if is_total else "#666666"
@@ -214,7 +203,7 @@ def build_station_bubble(info, count):
         stat_rows.append(stat_row("⚡", "DC 快充", stats["dc_available"], stats["dc_total"]))
     if stats["ac_total"] > 0:
         stat_rows.append(stat_row("🔌", "AC 慢充", stats["ac_available"], stats["ac_total"]))
-    # 分隔 + 總計
+    #分隔 + 總計
     stat_rows.append({"type": "separator", "margin": "md", "color": "#D0E8D0"})
     stat_rows.append(stat_row("✅", "可用總數", stats["available"], stats["total"], is_total=True))
 
@@ -229,7 +218,7 @@ def build_station_bubble(info, count):
         "contents": stat_rows,
     })
 
-    # ===== 費率(精簡後,有才顯示)=====
+    #費率(精簡後,有才顯示)
     if rate:
         body_contents.append({
             "type": "box",
