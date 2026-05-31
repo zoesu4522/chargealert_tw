@@ -130,6 +130,25 @@
     }
   }
 
+  /* ===== 分頁籤(沿用膠囊樣式當主導覽,尺寸稍大)===== */
+  .tabs {
+    display: flex; gap: 6px; flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+    width: fit-content; max-width: 100%;
+    border: 1px solid var(--line); border-radius: 999px;
+    background: var(--panel); padding: 5px;
+    box-shadow: var(--shadow);
+  }
+  .tabs button {
+    border: none; background: transparent; color: var(--muted); cursor: pointer;
+    padding: 8px 20px; font-size: 0.92rem; font-weight: 600; border-radius: 999px;
+    transition: all 0.15s; font-family: inherit; white-space: nowrap;
+  }
+  .tabs button:hover { color: var(--text); }
+  .tabs button.active { background: var(--accent); color: #fff; }
+  html[data-theme="dark"] .tabs button.active { color: #0a0e14; }
+  @media (max-width: 560px) { .tabs { width: 100%; justify-content: center; } }
+
   /* KPI  */
   .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
   .kpi {
@@ -151,6 +170,10 @@
   .card .hint { color: var(--muted); font-size: 0.78rem; margin-bottom: 1rem; }
   .card.wide { grid-column: 1 / -1; }
 
+  /* 分頁面板:用 hidden 屬性切換。注意 .grid 的 display:grid 比瀏覽器內建的
+     [hidden]{display:none} 優先,所以這裡明確壓下去,被隱藏的頁籤才不會還露出來。 */
+  .tabpanel[hidden] { display: none !important; }
+
   /* 關鍵修正:用固定像素高度的 wrapper 包 canvas,Chart.js 才不會爆版/壓扁。
      canvas 一定要 position:absolute 填滿 wrapper。 */
   .chart-wrap { position: relative; width: 100%; height: 320px; }
@@ -160,6 +183,23 @@
     .chart-wrap { height: 260px; }
     .chart-wrap.tall { height: 380px; }
   }
+
+  /* ===== 天氣卡 ===== */
+  .weather-body { display: flex; flex-wrap: wrap; align-items: center; gap: 1.5rem; margin-bottom: 1rem; }
+  .weather-main { display: flex; align-items: center; gap: 1rem; }
+  .weather-emoji { font-size: 3rem; line-height: 1; }
+  .weather-wx { font-size: 1.2rem; font-weight: 700; }
+  .weather-temp { font-size: 1rem; color: var(--muted); margin-top: 0.25rem; }
+  .weather-meta { display: flex; gap: 1.5rem; margin-left: auto; }
+  .weather-stat { display: flex; flex-direction: column; }
+  .weather-stat span { font-size: 0.78rem; color: var(--muted); }
+  .weather-stat strong { font-size: 1.5rem; font-weight: 800; color: var(--cyan); }
+  .weather-advisory {
+    background: color-mix(in srgb, var(--cyan) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--cyan) 35%, transparent);
+    color: var(--text); padding: 0.7rem 0.9rem; border-radius: 10px; font-size: 0.9rem; line-height: 1.5;
+  }
+  @media (max-width: 560px) { .weather-meta { margin-left: 0; } }
 
   /* Footer(尺寸固定 px;用 flex 自動換行,每段不從中間斷字) */
   footer {
@@ -171,9 +211,9 @@
     display: flex; flex-wrap: wrap; justify-content: center; align-items: center;
     column-gap: 10px; row-gap: 2px;
   }
-  footer .foot-seg { white-space: nowrap; }     
-  footer .foot-dot { color: var(--line); }      
-  @media (max-width: 560px) { footer .foot-dot { display: none; } }  
+  footer .foot-seg { white-space: nowrap; }
+  footer .foot-dot { color: var(--line); }
+  @media (max-width: 560px) { footer .foot-dot { display: none; } }
   .err { background: rgba(217,119,6,0.12); border: 1px solid rgba(217,119,6,0.4); color: var(--amber); padding: 0.7rem 0.9rem; border-radius: 10px; font-size: 0.82rem; margin-bottom: 1.25rem; display: none; }
 </style>
 </head>
@@ -199,9 +239,19 @@
   <main class="page">
     <div id="errBox" class="err"></div>
 
+    <!-- KPI 常駐最上方,不隨頁籤切換 -->
     <section class="kpis" id="kpis"></section>
 
-    <section class="grid">
+    <!-- 分頁籤 -->
+    <div class="tabs" id="tabBar">
+      <button data-tab="overview" class="active">總覽</button>
+      <button data-tab="trend">趨勢</button>
+      <button data-tab="rank">排名</button>
+    </div>
+
+    <!-- ===== 總覽:天氣 + 狀態分布 + AC/DC ===== -->
+    <section class="grid tabpanel" data-panel="overview">
+      <div class="card wide" id="weatherCard"></div>
       <div class="card">
         <h2>🔌 充電槍狀態分布</h2>
         <div class="hint">目前所有監測站點的即時狀態占比</div>
@@ -212,24 +262,28 @@
         <div class="hint">慢充(AC)與快充(DC)的可用 vs 總數(依 IEC 62196 分類)</div>
         <div class="chart-wrap"><canvas id="acdcChart"></canvas></div>
       </div>
-      <div class="card wide">
-        <h2>🏆 可用充電槍最多的站(Top 10)</h2>
-        <div class="hint">目前空閒槍數最多的充電站排名</div>
-        <div class="chart-wrap tall"><canvas id="topChart"></canvas></div>
-      </div>
+    </section>
 
-      <!--  新增:可用量趨勢(折線圖,讀 /api/history) -->
+    <!-- ===== 趨勢:可用量趨勢 + 變化活躍度 ===== -->
+    <section class="grid tabpanel" data-panel="trend" hidden>
       <div class="card wide">
         <h2>📈 可用量趨勢</h2>
         <div class="hint">可用 / 使用中槍數隨時間的變化(每 15 分鐘一筆,最近 24 小時)</div>
         <div class="chart-wrap tall"><canvas id="historyChart"></canvas></div>
       </div>
-
-      <!-- 新增:變化活躍度(長條圖,讀 /api/activity)===== -->
       <div class="card wide">
         <h2>🔥 變化活躍度</h2>
         <div class="hint">每小時發生幾次狀態變化,看哪個時段最忙(最近 48 小時)</div>
         <div class="chart-wrap"><canvas id="activityChart"></canvas></div>
+      </div>
+    </section>
+
+    <!-- ===== 排名:Top 10 ===== -->
+    <section class="grid tabpanel" data-panel="rank" hidden>
+      <div class="card wide">
+        <h2>🏆 可用充電槍最多的站(Top 10)</h2>
+        <div class="hint">目前空閒槍數最多的充電站排名</div>
+        <div class="chart-wrap tall"><canvas id="topChart"></canvas></div>
       </div>
     </section>
   </main>
@@ -243,13 +297,13 @@
   </footer>
 
 <script>
-// 主題 & 字級切換
+// ===== 主題 & 字級切換 =====
 const root = document.documentElement;
 const themeBtn = document.getElementById('themeBtn');
 function applyTheme(t) {
   root.setAttribute('data-theme', t);
   themeBtn.textContent = (t === 'light') ? '🌙' : '☀️';
-  // 主題換色後,重畫圖表讓格線/文字顏色跟著變
+  // 主題換色後,重畫圖表讓格線/文字顏色跟著變(天氣卡用 CSS 變數,會自動跟著換)
   refreshChartColors();
 }
 themeBtn.addEventListener('click', () => {
@@ -260,10 +314,27 @@ document.getElementById('sizeGroup').addEventListener('click', (e) => {
   root.setAttribute('data-size', b.dataset.size);
   document.querySelectorAll('#sizeGroup button').forEach(x => x.classList.toggle('active', x === b));
   // 字級變動會改變容器尺寸,通知圖表重算
-  Object.values(charts).forEach(c => c && c.resize());
+  resizeVisibleCharts();
 });
 
-// 顏色取用(讀 CSS 變數,主題切換後即時更新)
+// ===== 分頁籤切換 =====
+document.getElementById('tabBar').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  const tab = b.dataset.tab;
+  document.querySelectorAll('#tabBar button').forEach(x => x.classList.toggle('active', x === b));
+  document.querySelectorAll('.tabpanel').forEach(p => { p.hidden = (p.dataset.panel !== tab); });
+  // 切到的頁籤剛從 display:none 變可見,圖表尺寸要重算,否則會空白/壓扁
+  resizeVisibleCharts();
+});
+
+// 等一個 frame 讓版面算好,再 resize 全部圖表(隱藏的 resize 無害,可見的會被修正)
+function resizeVisibleCharts() {
+  requestAnimationFrame(() => {
+    Object.values(charts).forEach(c => c && c.resize());
+  });
+}
+
+// ===== 顏色取用(讀 CSS 變數,主題切換後即時更新) =====
 function cssVar(name) { return getComputedStyle(root).getPropertyValue(name).trim(); }
 function palette() {
   return { green: cssVar('--green'), amber: cssVar('--amber'), red: cssVar('--red'),
@@ -271,7 +342,7 @@ function palette() {
            text: cssVar('--text'), panel: cssVar('--panel') };
 }
 
-// 新增 history / activity 兩個圖表實例
+// status / acdc / top / history / activity 五個圖表實例
 const charts = { status: null, acdc: null, top: null, history: null, activity: null };
 let DATA = null; // 存查到的資料,重畫時用
 
@@ -279,14 +350,14 @@ function refreshChartColors() {
   if (!DATA) return;
   Object.values(charts).forEach(c => { if (c) c.destroy(); });
   drawCharts();
+  resizeVisibleCharts();
 }
 
-//範例資料 fallback(本機預覽用)
+// ===== 範例資料 fallback(本機預覽用) =====
 const SAMPLE = {
   stats: { station_count: 354, total: 1577, available: 1128, ac_available: 980, ac_total: 1300, dc_available: 148, dc_total: 277 },
   distribution: [ {status:1,label:'空閒',count:1128}, {status:2,label:'使用中',count:245}, {status:3,label:'離線',count:204} ],
   stations: [ {station_name:'南崁公一地下停車場',available:24,total:28}, {station_name:'藝文園區地下停車場(北)',available:12,total:15}, {station_name:'中壢中油內壢站',available:10,total:14} ],
-  //新增:趨勢圖的範例資料(本機 file:// 預覽時顯示,部署後會被真實 API 取代)
   history: [
     {t:'2026-05-31 08:00:00',total:1577,available:1190,in_use:187,offline:200},
     {t:'2026-05-31 10:00:00',total:1577,available:1155,in_use:222,offline:200},
@@ -307,6 +378,9 @@ const SAMPLE = {
     {t:'2026-05-31 20:00:00',changes:144},
     {t:'2026-05-31 22:00:00',changes:100},
   ],
+  weather: { location:'桃園市', weather:'晴時多雲', pop:20, min_temp:25, max_temp:29,
+             advisory:'天氣大致穩定,適合外出充電。', period_start:'2026-05-31 18:00:00',
+             period_end:'2026-06-01 06:00:00', source:'CWA F-C0032-001', ok:true, cached:false },
 };
 async function getJSON(path, fallback) {
   try { const r = await fetch(path); if (!r.ok) throw 0; return await r.json(); }
@@ -322,6 +396,46 @@ function kpiCard(label, value, unit, color) {
   return `<div class="kpi" style="--bar:${color}"><div class="label">${label}</div><div class="value">${value.toLocaleString()}<span class="unit">${unit}</span></div></div>`;
 }
 
+// ===== 天氣卡 =====
+function weatherEmoji(wx) {
+  if (!wx) return '🌡️';
+  if (wx.includes('雷')) return '⛈️';
+  if (wx.includes('雨')) return '🌧️';
+  if (wx.includes('雪')) return '❄️';
+  if (wx.includes('陰')) return '☁️';
+  if (wx.includes('多雲')) return '⛅';
+  if (wx.includes('晴')) return '☀️';
+  return '🌤️';
+}
+function fmtPeriod(ts) { return ts ? ts.slice(5, 16).replace('-', '/') : ''; }
+
+function renderWeather(w) {
+  const el = document.getElementById('weatherCard');
+  if (!w || w.ok === false) {
+    el.innerHTML = `<h2>🌤️ 天氣</h2><div class="hint">天氣資料暫時無法取得,稍後會自動恢復。</div>`;
+    return;
+  }
+  const emoji = weatherEmoji(w.weather);
+  const cached = w.cached ? ' · 快取' : '';
+  el.innerHTML = `
+    <h2>${emoji} ${w.location} 天氣</h2>
+    <div class="hint">預報時段 ${fmtPeriod(w.period_start)} ～ ${fmtPeriod(w.period_end)} · 來源 ${w.source}${cached}</div>
+    <div class="weather-body">
+      <div class="weather-main">
+        <div class="weather-emoji">${emoji}</div>
+        <div>
+          <div class="weather-wx">${w.weather}</div>
+          <div class="weather-temp">${w.min_temp}° – ${w.max_temp}°C</div>
+        </div>
+      </div>
+      <div class="weather-meta">
+        <div class="weather-stat"><span>降雨機率</span><strong>${w.pop}%</strong></div>
+      </div>
+    </div>
+    <div class="weather-advisory">💡 ${w.advisory}</div>
+  `;
+}
+
 function drawCharts() {
   const P = palette();
   Chart.defaults.color = P.muted;
@@ -329,7 +443,7 @@ function drawCharts() {
   Chart.defaults.borderColor = P.grid;
 
   const s = DATA.stats, d = DATA.distribution, t = DATA.stations;
-  const h = DATA.history, a = DATA.activity;   
+  const h = DATA.history, a = DATA.activity;
 
   charts.acdc = new Chart(document.getElementById('acdcChart'), {
     type: 'bar',
@@ -357,8 +471,7 @@ function drawCharts() {
       scales:{ x:{beginAtZero:true, grid:{color:P.grid}}, y:{grid:{display:false}} } },
   });
 
-  // 新增:可用量趨勢(折線圖)
-  // x 軸取時間的 HH:MM;y 軸不從 0 開始,讓可用量的波動看得清楚
+  // 可用量趨勢(折線圖)— y 軸不從 0 開始,讓可用量的波動看得清楚
   charts.history = new Chart(document.getElementById('historyChart'), {
     type:'line',
     data:{ labels:h.map(x=>x.t.slice(11,16)), datasets:[
@@ -373,8 +486,7 @@ function drawCharts() {
                x:{grid:{display:false}, ticks:{maxTicksLimit:12, autoSkip:true}} } },
   });
 
-  // 新增:變化活躍度(長條圖)
-  // x 軸取「MM-DD HH:00」;48 小時的小時桶,標籤太多時自動跳過
+  // 變化活躍度(長條圖)— x 軸取「MM-DD HH:00」,標籤太多時自動跳過
   charts.activity = new Chart(document.getElementById('activityChart'), {
     type:'bar',
     data:{ labels:a.map(x=>x.t.slice(5,16)), datasets:[
@@ -390,10 +502,10 @@ async function render() {
   const stats = await getJSON('/api/stats', SAMPLE.stats);
   const distribution = (await getJSON('/api/status-distribution', {distribution:SAMPLE.distribution})).distribution;
   const stations = (await getJSON('/api/top-stations', {stations:SAMPLE.stations})).stations;
-  // 新增:抓趨勢圖的兩個端點
   const history = (await getJSON('/api/history?hours=24&type=ALL', {history:SAMPLE.history})).history;
   const activity = (await getJSON('/api/activity?hours=48', {activity:SAMPLE.activity})).activity;
-  DATA = { stats, distribution, stations, history, activity };
+  const weather = await getJSON('/api/weather', SAMPLE.weather);
+  DATA = { stats, distribution, stations, history, activity, weather };
 
   document.getElementById('kpis').innerHTML =
     kpiCard('監測站點', stats.station_count, '站', cssVar('--cyan')) +
@@ -401,6 +513,7 @@ async function render() {
     kpiCard('目前可用', stats.available, '支', cssVar('--green')) +
     kpiCard('使用中 + 離線', stats.total - stats.available, '支', cssVar('--amber'));
 
+  renderWeather(weather);
   drawCharts();
 }
 render();
