@@ -58,6 +58,7 @@ def run_once(city="Taoyuan"):
         return
 
     inserted, changes, change_list = db.upsert_connectors(statuses)
+    db.insert_snapshot()
     print(f"💾 寫入 {inserted} 支,偵測到 {changes} 筆狀態變化")
 
     if change_list:
