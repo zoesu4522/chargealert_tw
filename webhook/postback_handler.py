@@ -124,6 +124,14 @@ def _subscribe(user_id, station_id):
         return {"type": "text", "text": "無法識別使用者,請稍後再試 🙏"}
     info = db.get_station_info(station_id)
     name = info.get("station_name", "充電站") if info else "充電站"
+    # 先檢查是否已訂閱:已訂過就提示,不重複回「訂閱成功」
+    if db.is_subscribed(user_id, station_id):
+        return {"type": "text", "text": (
+            f"✅ 你已經訂閱過了\n\n"
+            f"📍 {name}\n\n"
+            f"這站有空位時會通知你。\n"
+            f"想取消可到「我的訂閱」管理。"
+        )}
     ok = db.subscribe_station(user_id, station_id, name)
     if ok:
         return {"type": "text", "text": (
