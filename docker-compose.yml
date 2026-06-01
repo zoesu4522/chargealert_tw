@@ -51,6 +51,8 @@ services:
       db:
         condition: service_healthy
     environment:
+      TDX_CLIENT_ID: ${TDX_CLIENT_ID}
+      TDX_CLIENT_SECRET: ${TDX_CLIENT_SECRET}
       LINE_CHANNEL_SECRET: ${LINE_CHANNEL_SECRET}
       LINE_CHANNEL_ACCESS_TOKEN: ${LINE_CHANNEL_ACCESS_TOKEN}
       CWA_API_KEY: ${CWA_API_KEY}
