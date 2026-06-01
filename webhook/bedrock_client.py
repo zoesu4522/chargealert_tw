@@ -1,6 +1,5 @@
 import json
 import logging
-
 import boto3
 
 logger = logging.getLogger("chargealert.bedrock")
@@ -23,14 +22,58 @@ def _invoke(system_prompt, user_text, max_tokens=400):
     )
     return resp["output"]["message"]["content"][0]["text"].strip()
 
-#把使用者訊息分類成意圖。回傳 dict:{"intent": "overall" | "station" | "other", "keyword": "<站名關鍵字或空>"}
 
-#overall:問整體/全部/有沒有充電站可用之類的概況
-#station:問某個特定地點/站名(keyword 放抽出來的地名)
-#other:打招呼、無關問題等
+# ── 意圖判斷:規則優先,LLM 後備 ──────────────────────────────
+# 設計:核心查詢用確定性規則保證「一定能用」,不依賴 Bedrock 配額/憑證。
+#       規則判斷不出來、且 Bedrock 可用時,才用 LLM 增強(處理較模糊的自然語言)。
+#       與 weather.py 的「規則 advisory」一致:事實層不綁 LLM。
+
+#整體概況的關鍵字
+_OVERALL_KEYWORDS = ("總共", "全部", "整體", "一共", "總數", "現在有多少", "多少充電", "概況", "全台", "所有")
+#打招呼 / 無關
+_GREETING_KEYWORDS = ("你好", "哈囉", "嗨", "hi", "hello", "你是誰", "自我介紹", "怎麼用", "功能")
+#查站常見的尾綴語助詞(抽地名時去掉)
+_STATION_SUFFIXES = ("有位子嗎", "有空位嗎", "有沒有位子", "有沒有空", "充電站", "充電", "的狀況", "狀況",
+                     "有位嗎", "可以充嗎", "還有位子嗎", "在哪", "嗎", "呢", "?", "?")
+
+
+def parse_intent_rule_based(user_text):
+    """純關鍵字意圖判斷,不呼叫 Bedrock。回傳同 parse_intent 格式,或 None 表示規則拿不準。"""
+    t = (user_text or "").strip()
+    if not t:
+        return {"intent": "other", "keyword": ""}
+
+    #整體概況
+    if any(k in t for k in _OVERALL_KEYWORDS):
+        return {"intent": "overall", "keyword": ""}
+
+    #打招呼 / 問功能(且不含明顯地名訊號時)
+    if any(k in t for k in _GREETING_KEYWORDS) and len(t) <= 8:
+        return {"intent": "other", "keyword": ""}
+
+    #其餘:當作查站,抽地名(去掉常見尾綴語助詞)
+    keyword = t
+    for suf in _STATION_SUFFIXES:
+        keyword = keyword.replace(suf, "")
+    keyword = keyword.strip()
+
+    #抽完還有東西 → 當查站;抽到空(整句都是語助詞)→ 規則拿不準,回 None
+    if keyword:
+        return {"intent": "station", "keyword": keyword}
+    return None
+
 
 def parse_intent(user_text):
-    
+    """
+    意圖分類。回傳 {"intent": "overall"|"station"|"other", "keyword": "..."}。
+    流程:先規則判斷;規則明確就用。規則拿不準(None)時,Bedrock 可用就用 LLM,
+          LLM 失敗(配額不足 / 無憑證 / 任何錯)則安全退回 other。
+    """
+    rule = parse_intent_rule_based(user_text)
+    if rule is not None:
+        return rule
+
+    #規則拿不準 → 試 LLM(包起來,失敗不影響服務)
     system = (
         "你是一個意圖分類器,專門處理電動車充電站查詢。"
         "使用者會用中文問問題。請判斷意圖並只回傳 JSON,不要任何其他文字、不要 markdown。\n"
@@ -40,9 +83,8 @@ def parse_intent(user_text):
         "- 問某個具體地點或店名(例如「中壢有位子嗎」「江園門市」)-> station,keyword 放那個地名\n"
         "- 打招呼、自我介紹、無關問題 -> other\n"
     )
-    raw = _invoke(system, user_text, max_tokens=120)
     try:
-        # 保險:去掉可能誤帶的 markdown code fence
+        raw = _invoke(system, user_text, max_tokens=120)
         cleaned = raw.replace("```json", "").replace("```", "").strip()
         data = json.loads(cleaned)
         intent = data.get("intent", "other")
@@ -51,7 +93,7 @@ def parse_intent(user_text):
             intent = "other"
         return {"intent": intent, "keyword": keyword.strip()}
     except Exception as e:
-        logger.warning("意圖解析失敗,fallback 成 other: %s (raw=%r)", e, raw)
+        logger.warning("LLM 意圖解析失敗(可能 Bedrock 配額/憑證問題),fallback other: %s", e)
         return {"intent": "other", "keyword": ""}
 
 

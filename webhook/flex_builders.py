@@ -192,3 +192,121 @@ def _city_code_from_zh(city_zh):
     # 卡片標題用的是顯示名(可能含「台」),正規化後查
     norm = city_zh.replace("臺", "台")
     return _ZH_TO_CODE.get(norm, "Taoyuan")
+
+def build_station_detail_bubble(info, stats, subscribed=False):
+    """
+    單站詳情卡(含訂閱/退訂按鈕)。給文字查站的結果用。
+    info: station_info 一筆(含 station_name, address, station_id)
+    stats: get_station_stats 結果
+    subscribed: True 顯示退訂鈕,False 顯示訂閱鈕
+    """
+    name = info.get("station_name") or "充電站"
+    address = info.get("address") or ""
+    sid = info.get("station_id")
+    available = stats.get("available", 0)
+    total = stats.get("total", 0)
+
+    def stat_row(icon, label, avail, tot, is_total=False):
+        color = GREEN if avail > 0 else "#BBBBBB"
+        label_color = "#333333" if is_total else "#666666"
+        weight = "bold" if is_total else "regular"
+        return {
+            "type": "box", "layout": "horizontal",
+            "contents": [
+                {"type": "text", "text": f"{icon} {label}", "size": "sm",
+                 "color": label_color, "weight": weight, "flex": 5},
+                {"type": "text", "text": f"{avail} / {tot}", "size": "sm",
+                 "weight": "bold", "color": color, "align": "end", "flex": 3},
+            ],
+        }
+
+    rows = []
+    if stats.get("dc_total", 0) > 0:
+        rows.append(stat_row("⚡", "DC 快充", stats.get("dc_available", 0), stats.get("dc_total", 0)))
+    if stats.get("ac_total", 0) > 0:
+        rows.append(stat_row("🔌", "AC 慢充", stats.get("ac_available", 0), stats.get("ac_total", 0)))
+    rows.append({"type": "separator", "margin": "md", "color": "#D0E8D0"})
+    rows.append(stat_row("✅", "可用總數", available, total, is_total=True))
+
+    body_contents = [
+        {"type": "text", "text": name, "weight": "bold", "size": "md",
+         "wrap": True, "color": "#1A1A1A"},
+    ]
+    if address:
+        body_contents.append({"type": "text", "text": address, "size": "xs",
+                              "color": "#999999", "wrap": True, "margin": "sm"})
+    body_contents.append({
+        "type": "box", "layout": "vertical", "backgroundColor": GREEN_LIGHT,
+        "cornerRadius": "md", "paddingAll": "md", "margin": "lg", "spacing": "sm",
+        "contents": rows,
+    })
+
+    if subscribed:
+        btn = {"type": "button", "style": "secondary", "height": "sm",
+               "action": {"type": "postback", "label": "🔕 取消訂閱",
+                          "data": f"action=unsubscribe&station={sid}"}}
+    else:
+        btn = {"type": "button", "style": "primary", "color": GREEN, "height": "sm",
+               "action": {"type": "postback", "label": "🔔 訂閱這站",
+                          "data": f"action=subscribe&station={sid}"}}
+
+    return {
+        "type": "bubble", "size": "kilo",
+        "header": {
+            "type": "box", "layout": "vertical", "backgroundColor": GREEN,
+            "paddingAll": "md",
+            "contents": [{"type": "text", "text": "🔌 充電站", "color": "#FFFFFF",
+                          "size": "xs", "weight": "bold"}],
+        },
+        "body": {
+            "type": "box", "layout": "vertical", "paddingAll": "lg", "spacing": "sm",
+            "contents": body_contents,
+        },
+        "footer": {
+            "type": "box", "layout": "vertical", "paddingAll": "md", "contents": [btn]},
+    }
+
+
+def build_stations_carousel(stations_with_stats):
+    """
+    多站結果(carousel)。每張單站卡含訂閱鈕。
+    stations_with_stats: [(info, stats), ...]
+    """
+    bubbles = [build_station_detail_bubble(info, stats)
+               for info, stats in stations_with_stats[:10]]
+    return {"type": "carousel", "contents": bubbles}
+
+
+def build_subscriptions_carousel(subs):
+    """我的訂閱清單(carousel)。每張卡一個訂閱站 + 退訂按鈕。"""
+    bubbles = []
+    for s in subs[:10]:
+        name = s.get("station_name") or "充電站"
+        sid = s.get("station_id")
+        bubbles.append({
+            "type": "bubble", "size": "kilo",
+            "header": {
+                "type": "box", "layout": "vertical", "backgroundColor": GREEN,
+                "paddingAll": "md",
+                "contents": [{"type": "text", "text": "🔔 已訂閱", "color": "#FFFFFF",
+                              "size": "xs", "weight": "bold"}],
+            },
+            "body": {
+                "type": "box", "layout": "vertical", "paddingAll": "lg", "spacing": "sm",
+                "contents": [
+                    {"type": "text", "text": name, "weight": "bold", "size": "md",
+                     "wrap": True, "color": "#1A1A1A"},
+                    {"type": "text", "text": "有空位時會通知你", "size": "xs",
+                     "color": "#999999", "margin": "sm"},
+                ],
+            },
+            "footer": {
+                "type": "box", "layout": "vertical", "paddingAll": "md",
+                "contents": [{
+                    "type": "button", "style": "secondary", "height": "sm",
+                    "action": {"type": "postback", "label": "🔕 取消訂閱",
+                               "data": f"action=unsubscribe&station={sid}"},
+                }],
+            },
+        })
+    return {"type": "carousel", "contents": bubbles}

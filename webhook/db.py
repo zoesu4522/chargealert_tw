@@ -351,3 +351,16 @@ def is_subscribed(user_id, station_id):
             return cursor.fetchone() is not None
     finally:
         conn.close()
+
+def get_station_info(station_id):
+    """用 station_id 查單站基本資料(訂閱時拿站名顯示用)。回傳 dict 或 None。"""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT station_id, station_name, city, district, address FROM station_info WHERE station_id = %s",
+                (station_id,),
+            )
+            return cursor.fetchone()
+    finally:
+        conn.close()
