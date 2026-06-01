@@ -1,3 +1,21 @@
+"""
+postback_handler.py — 處理 LINE Rich Menu / 卡片按鈕的 postback 事件。
+
+action 分派:
+  home          🏠 我的縣市     → 預設桃園充電卡
+  menu_charging 🗺️ 選縣市充電   → 7 大都會 carousel(action=query)
+  menu_weather  ☂️ 各地天氣     → 7 大都會 carousel(action=weather)
+  overall       📊 整體統計     → 跨縣市總覽文字
+  my_subs       ⭐ 我的訂閱     → 列出使用者訂閱的站(可退訂)
+  about         ℹ️ 關於         → 專案介紹
+  query&city=X  查某縣市充電    → On-Demand 抓 + 充電卡
+  weather&city=X 查某縣市天氣   → get_weather + 天氣卡
+  subscribe&station=X   訂閱某站 → 寫入 user_subscriptions
+  unsubscribe&station=X 退訂某站 → 軟刪除
+
+需要 user_id 的 action(訂閱相關)由 main.py 從 event.source.userId 傳入。
+"""
+
 from urllib.parse import parse_qs
 
 import db
@@ -108,7 +126,12 @@ def _subscribe(user_id, station_id):
     name = info.get("station_name", "充電站") if info else "充電站"
     ok = db.subscribe_station(user_id, station_id, name)
     if ok:
-        return {"type": "text", "text": f"🔔 已訂閱「{name}」\n這站有空位時會通知你(同站每小時最多通知一次)。"}
+        return {"type": "text", "text": (
+            f"🔔 已訂閱成功!\n\n"
+            f"📍 {name}\n\n"
+            f"這站有空位時會主動通知你\n"
+            f"(同站每小時最多通知一次)"
+        )}
     return {"type": "text", "text": "訂閱失敗,請稍後再試 🙏"}
 
 
@@ -119,7 +142,11 @@ def _unsubscribe(user_id, station_id):
     name = info.get("station_name", "充電站") if info else "充電站"
     ok = db.unsubscribe_station(user_id, station_id)
     if ok:
-        return {"type": "text", "text": f"🔕 已取消訂閱「{name}」"}
+        return {"type": "text", "text": (
+            f"🔕 已取消訂閱\n\n"
+            f"📍 {name}\n\n"
+            f"不會再收到這站的通知。"
+        )}
     return {"type": "text", "text": "取消訂閱失敗,請稍後再試 🙏"}
 
 
