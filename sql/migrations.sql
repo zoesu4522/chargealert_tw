@@ -71,3 +71,22 @@ CREATE TABLE IF NOT EXISTS availability_snapshot (
 -- =====================================================================
 -- 變更記錄結束。新增變更請往下追加,並標註日期 + 套用環境。
 -- =====================================================================
+
+-- ---------------------------------------------------------------------
+-- 2026-06-01  訂閱制:user_subscriptions
+-- ---------------------------------------------------------------------
+-- 背景:訂閱制推播功能,記錄使用者訂閱哪些站。
+-- 套用環境:本機(2026-06-01 手動建)、EC2(待套用)。
+-- 用 IF NOT EXISTS,可安全重跑。
+CREATE TABLE IF NOT EXISTS user_subscriptions (
+    id               INT AUTO_INCREMENT PRIMARY KEY,
+    user_id          VARCHAR(100) NOT NULL,
+    station_id       VARCHAR(100) NOT NULL,
+    station_name     VARCHAR(255),
+    created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    active           TINYINT(1) DEFAULT 1,
+    last_notified_at TIMESTAMP NULL,
+    UNIQUE KEY uniq_user_station (user_id, station_id),
+    INDEX idx_station_active (station_id, active),
+    INDEX idx_user_active (user_id, active)
+);

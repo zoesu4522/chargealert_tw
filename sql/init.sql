@@ -72,3 +72,17 @@ CREATE TABLE IF NOT EXISTS availability_snapshot (
     offline     INT DEFAULT 0,
     INDEX idx_type_time (power_type, snapshot_at)
 );
+-- user_subscriptions:使用者訂閱的充電站(訂閱制推播)。
+-- active 軟刪除(退訂設 0 保留記錄);last_notified_at 實作推播冷卻。
+CREATE TABLE IF NOT EXISTS user_subscriptions (
+    id               INT AUTO_INCREMENT PRIMARY KEY,
+    user_id          VARCHAR(100) NOT NULL,
+    station_id       VARCHAR(100) NOT NULL,
+    station_name     VARCHAR(255),
+    created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    active           TINYINT(1) DEFAULT 1,
+    last_notified_at TIMESTAMP NULL,
+    UNIQUE KEY uniq_user_station (user_id, station_id),
+    INDEX idx_station_active (station_id, active),
+    INDEX idx_user_active (user_id, active)
+);
