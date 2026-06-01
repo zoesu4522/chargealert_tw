@@ -290,6 +290,50 @@ def insert_snapshot():
     finally:
         conn.close()
 
+# ===== 訂閱推播(供 scheduler / notifier 用)=====
+
+#冷卻時間(小時):同一使用者對同一站,這段時間內最多推一次。
+NOTIFY_COOLDOWN_HOURS = 1
+
+
+def get_subscribers_to_notify(station_id):
+    """
+    查某站「該收到推播」的訂閱者:active=1,且距上次推播已超過冷卻時間
+    (last_notified_at 為 NULL 或早於 NOW()-冷卻時數)。
+    回傳 [{id, user_id}, ...](id 是訂閱列的主鍵,推完用來更新 last_notified_at)。
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """SELECT id, user_id FROM user_subscriptions
+                   WHERE station_id = %s AND active = 1
+                     AND (last_notified_at IS NULL
+                          OR last_notified_at < NOW() - INTERVAL %s HOUR)""",
+                (station_id, NOTIFY_COOLDOWN_HOURS),
+            )
+            return cursor.fetchall()
+    finally:
+        conn.close()
+
+
+def mark_notified(subscription_ids):
+    """把這些訂閱列的 last_notified_at 更新成現在(推播成功後呼叫)。"""
+    if not subscription_ids:
+        return
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            placeholders = ",".join(["%s"] * len(subscription_ids))
+            cursor.execute(
+                f"""UPDATE user_subscriptions SET last_notified_at = NOW()
+                    WHERE id IN ({placeholders})""",
+                tuple(subscription_ids),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+        
 #測連線 
 if __name__ == "__main__":
     test_connection()

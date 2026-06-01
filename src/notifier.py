@@ -1,9 +1,10 @@
 import requests
 import config
 
-#推播一則文字訊息給設定的 LINE 使用者/text: 要發送的訊息內容/回傳:成功 True / 失敗 False
-def send_line_message(text):
-    if not config.LINE_CHANNEL_ACCESS_TOKEN or not config.LINE_USER_ID:
+#推播一則文字訊息給指定 LINE 使用者。to 不給則用 config.LINE_USER_ID(向後相容)。
+def send_line_message(text, to=None):
+    target = to or config.LINE_USER_ID
+    if not config.LINE_CHANNEL_ACCESS_TOKEN or not target:
         print("  LINE 設定不完整,請檢查 .env 的 TOKEN 和 USER_ID")
         return False
 
@@ -13,7 +14,7 @@ def send_line_message(text):
         "Authorization": f"Bearer {config.LINE_CHANNEL_ACCESS_TOKEN}",
     }
     payload = {
-        "to": config.LINE_USER_ID,
+        "to": target,
         "messages": [
             {"type": "text", "text": text}
         ],
@@ -31,56 +32,66 @@ def send_line_message(text):
             print(f"   狀態碼:{e.response.status_code}")
             print(f"   回應:{e.response.text[:300]}")
         return False
-#把變成空閒的充電槍組成 Flex 卡片通知
+
+
+#訂閱制推播:對每個「變成空閒」的站,查訂閱者(已含 1 小時冷卻),逐人 push 卡片。
+#不再推給寫死的 LINE_USER_ID —— 沒人訂閱該站就不推。
 def notify_available(changes):
     import db
-    import config
+
     if not config.LINE_NOTIFY_ENABLED:
         available_count = sum(1 for c in changes if c["new_status"] == 1)
         if available_count > 0:
-            print(f"📵 LINE 推播已停用(開發模式),本來要通知 {available_count} 個空位")
+            print(f"📵 LINE 推播已停用(開發模式),本來要處理 {available_count} 個空位")
         return 0
+
+    #只看「變成空閒(status=1)」的變化
     available = [c for c in changes if c["new_status"] == 1]
     if not available:
         print("📭 沒有新的空位,不發通知")
         return 0
 
-    by_station = {}
+    #同一站可能有多支槍同時變空,先依站去重(一站推一次卡片即可)
+    station_ids = []
     for c in available:
-        by_station.setdefault(c["station_id"], []).append(c)
+        sid = c["station_id"]
+        if sid not in station_ids:
+            station_ids.append(sid)
 
-    #為每個站點組一張卡片(最多 10 張,LINE carousel 上限 12)
-    bubbles = []
-    for sid in list(by_station.keys())[:10]:
-        count = len(by_station[sid])
+    total_pushed = 0
+    for sid in station_ids:
+        #查這站「該收到推播」的訂閱者(active=1 且過了冷卻時間)
+        subscribers = db.get_subscribers_to_notify(sid)
+        if not subscribers:
+            continue  #沒人訂這站(或都在冷卻中),跳過
+
         info = db.get_station_info(sid)
-        if info and info.get("station_name"):
-            bubbles.append(build_station_bubble(info, count))
+        if not info or not info.get("station_name"):
+            continue
+        bubble = build_station_bubble(info, 0)
+        alt_text = f"⚡ {info['station_name']} 有空位"
 
-    if not bubbles:
-        # 都查不到基本資料,退回純文字
-        print("⚠️  查無基本資料,改用純文字通知")
-        text = f"⚡ 偵測到 {len(available)} 個充電站空位\n快去充電吧!🚗"
-        send_line_message(text)
-        return len(available)
+        notified_ids = []
+        for sub in subscribers:
+            ok = send_line_flex(alt_text, bubble, to=sub["user_id"])
+            if ok:
+                notified_ids.append(sub["id"])
+                total_pushed += 1
 
-    # 多張卡片用 carousel(可左右滑),單張就直接用 bubble
-    if len(bubbles) == 1:
-        flex_content = bubbles[0]
-    else:
-        flex_content = {
-            "type": "carousel",
-            "contents": bubbles,
-        }
+        #推成功的更新 last_notified_at(啟動 1 小時冷卻)
+        if notified_ids:
+            db.mark_notified(notified_ids)
+            print(f"📱 {info['station_name']}:已推播給 {len(notified_ids)} 位訂閱者")
 
-    alt_text = f"⚡ {len(bubbles)} 個充電站有空位"
-    success = send_line_flex(alt_text, flex_content)
-    return len(available) if success else 0
+    if total_pushed == 0:
+        print("📭 有空位變化,但沒有對應的訂閱者(或都在冷卻中)")
+    return total_pushed
 
-#推播 Flex Message(彈性訊息卡片)/alt_text: 通知列預覽文字(LINE 通知列顯示這個)/flex_content: Flex Message 的 JSON 結構
-def send_line_flex(alt_text, flex_content):
 
-    if not config.LINE_CHANNEL_ACCESS_TOKEN or not config.LINE_USER_ID:
+#推播 Flex Message 給指定使用者。to 不給則用 config.LINE_USER_ID。
+def send_line_flex(alt_text, flex_content, to=None):
+    target = to or config.LINE_USER_ID
+    if not config.LINE_CHANNEL_ACCESS_TOKEN or not target:
         print("⚠️  LINE 設定不完整")
         return False
 
@@ -90,7 +101,7 @@ def send_line_flex(alt_text, flex_content):
         "Authorization": f"Bearer {config.LINE_CHANNEL_ACCESS_TOKEN}",
     }
     payload = {
-        "to": config.LINE_USER_ID,
+        "to": target,
         "messages": [
             {
                 "type": "flex",
@@ -101,16 +112,15 @@ def send_line_flex(alt_text, flex_content):
     }
 
     try:
-        print(" 正在發送 LINE Flex 卡片...")
         resp = requests.post(url, headers=headers, json=payload, timeout=10)
         resp.raise_for_status()
-        print(" Flex 卡片發送成功!")
         return True
     except requests.exceptions.RequestException as e:
         print(f" Flex 發送失敗:{e}")
         if hasattr(e, "response") and e.response is not None:
             print(f"   回應:{e.response.text[:300]}")
         return False
+
 
 def build_station_bubble(info, count):
     import db
@@ -129,10 +139,8 @@ def build_station_bubble(info, count):
     def simplify_rate(rate_text):
         if not rate_text:
             return ""
-        #抓「數字+元+每度/度/分/小時」的片段
         matches = re.findall(r"\d+(?:\.\d+)?\s*元\s*(?:每度|/度|每分|/分|每小時|/小時)", rate_text)
         if matches:
-            #去重、最多取 2 個
             seen = []
             for m in matches:
                 m = m.replace(" ", "")
@@ -143,7 +151,6 @@ def build_station_bubble(info, count):
 
     rate = simplify_rate(info.get("charging_rate", ""))
 
-    #header綠色橫幅
     header = {
         "type": "box",
         "layout": "vertical",
@@ -160,9 +167,7 @@ def build_station_bubble(info, count):
         ],
     }
 
-    #body
     body_contents = [
-        #站名
         {
             "type": "text",
             "text": name,
@@ -172,7 +177,6 @@ def build_station_bubble(info, count):
             "color": "#1A1A1A",
         },
     ]
-
 
     if address:
         body_contents.append({
@@ -184,7 +188,6 @@ def build_station_bubble(info, count):
             "margin": "sm",
         })
 
-    #統計區(用淡綠底框包起來)
     def stat_row(icon, label, available, total, is_total=False):
         color = "#2E7D32" if available > 0 else "#BBBBBB"
         label_color = "#333333" if is_total else "#666666"
@@ -203,7 +206,6 @@ def build_station_bubble(info, count):
         stat_rows.append(stat_row("⚡", "DC 快充", stats["dc_available"], stats["dc_total"]))
     if stats["ac_total"] > 0:
         stat_rows.append(stat_row("🔌", "AC 慢充", stats["ac_available"], stats["ac_total"]))
-    #分隔 + 總計
     stat_rows.append({"type": "separator", "margin": "md", "color": "#D0E8D0"})
     stat_rows.append(stat_row("✅", "可用總數", stats["available"], stats["total"], is_total=True))
 
@@ -218,7 +220,6 @@ def build_station_bubble(info, count):
         "contents": stat_rows,
     })
 
-    #費率(精簡後,有才顯示)
     if rate:
         body_contents.append({
             "type": "box",

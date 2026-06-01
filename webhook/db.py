@@ -271,3 +271,83 @@ def get_activity(hours=48):
         return [{"t": r["bucket"], "changes": int(r["changes"])} for r in rows]
     finally:
         conn.close()
+
+def subscribe_station(user_id, station_id, station_name):
+    """
+    訂閱某站。已存在(含已退訂)就重新啟用,不會重複新增。
+    回傳 True=成功。
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """INSERT INTO user_subscriptions
+                   (user_id, station_id, station_name, active)
+                   VALUES (%s, %s, %s, 1)
+                   ON DUPLICATE KEY UPDATE
+                   active = 1,
+                   station_name = VALUES(station_name)""",
+                (user_id, station_id, station_name),
+            )
+        conn.commit()
+        return True
+    except Exception:
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
+ 
+ 
+def unsubscribe_station(user_id, station_id):
+    """退訂某站(軟刪除:active=0,保留記錄)。回傳 True=成功。"""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """UPDATE user_subscriptions SET active = 0
+                   WHERE user_id = %s AND station_id = %s""",
+                (user_id, station_id),
+            )
+        conn.commit()
+        return True
+    except Exception:
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
+ 
+ 
+def get_user_subscriptions(user_id):
+    """
+    查某使用者目前啟用中的訂閱清單。
+    回傳 [{station_id, station_name}, ...]
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """SELECT station_id, station_name
+                   FROM user_subscriptions
+                   WHERE user_id = %s AND active = 1
+                   ORDER BY created_at DESC""",
+                (user_id,),
+            )
+            return cursor.fetchall()
+    finally:
+        conn.close()
+ 
+ 
+def is_subscribed(user_id, station_id):
+    """檢查某使用者是否已訂閱某站(active=1)。回傳 bool。"""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """SELECT 1 FROM user_subscriptions
+                   WHERE user_id = %s AND station_id = %s AND active = 1
+                   LIMIT 1""",
+                (user_id, station_id),
+            )
+            return cursor.fetchone() is not None
+    finally:
+        conn.close()
