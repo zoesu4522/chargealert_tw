@@ -1,4 +1,3 @@
-
 import os
 import pymysql
 
@@ -78,21 +77,64 @@ def get_overall_stats():
         conn.close()
 
 
-def search_stations_by_name(keyword, limit=5):
+def get_city_stats(city):
     """
-    用站名模糊比對找充電站(使用者多半打地名/店名,不會知道 station_id)。
-    回傳 [{station_id, station_name, address}, ...],最多 limit 筆。
+    單一縣市統計:某縣市所有站的 AC/DC 可用概況 + 站數。
+    connector_status JOIN station_info,用 station_info.city 過濾。
+    回傳:_summarize 的統計 dict + station_count(該縣市站數)。
+    city 用英文 code(對應 config.CITY_NAME_MAP,例 "Taipei")。
     """
     conn = get_connection()
     try:
         with conn.cursor() as cursor:
             cursor.execute(
-                """SELECT station_id, station_name, address
-                   FROM station_info
-                   WHERE station_name LIKE %s
-                   LIMIT %s""",
-                (f"%{keyword}%", limit),
+                """SELECT c.connector_type, c.current_status, COUNT(*) AS cnt
+                   FROM connector_status c
+                   JOIN station_info s ON c.station_id = s.station_id
+                   WHERE s.city = %s
+                   GROUP BY c.connector_type, c.current_status""",
+                (city,),
             )
+            rows = cursor.fetchall()
+
+            cursor.execute(
+                "SELECT COUNT(*) AS c FROM station_info WHERE city = %s",
+                (city,),
+            )
+            station_count = cursor.fetchone()["c"]
+
+        stats = _summarize(rows)
+        stats["station_count"] = station_count
+        return stats
+    finally:
+        conn.close()
+
+
+def search_stations_by_name(keyword, city=None, limit=5):
+    """
+    用站名模糊比對找充電站(使用者多半打地名/店名,不會知道 station_id)。
+    city:可選,英文 code。帶了就只在該縣市內找;不帶就跨全部縣市(向後相容)。
+    回傳 [{station_id, station_name, city, district, address}, ...],最多 limit 筆。
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            if city:
+                cursor.execute(
+                    """SELECT station_id, station_name, city, district, address
+                       FROM station_info
+                       WHERE station_name LIKE %s AND city = %s
+                       LIMIT %s""",
+                    (f"%{keyword}%", city, limit),
+                )
+            else:
+                cursor.execute(
+                    """SELECT station_id, station_name, city, district, address
+                       FROM station_info
+                       WHERE station_name LIKE %s
+                       LIMIT %s""",
+                    (f"%{keyword}%", limit),
+                )
             return cursor.fetchall()
     finally:
         conn.close()
