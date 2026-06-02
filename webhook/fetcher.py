@@ -1,14 +1,4 @@
-"""
-On-Demand 縣市抓取。
-使用者在 LINE 點選某縣市時,即時向 TDX 抓「站基本資料 + 槍即時狀態」兩支 API,
-寫進 MySQL,之後 db.get_city_stats(city) 就查得到。
 
-設計:
-- 10 分鐘 TTL 快取(cachetools):同縣市 10 分內重複點,不重打 TDX。
-- 並發鎖(threading.Lock):多人同時點同縣市,只有第一個真的去抓,其餘等結果。
-- 自帶精簡 upsert:webhook/db.py 原本只有查詢,這裡補寫入,避免跨資料夾 import src。
-  寫入時帶上 city(英文 code)/ district(TDX Town),與 src 端格式一致。
-"""
 import os
 import threading
 
@@ -167,12 +157,20 @@ def fetch_city_on_demand(city):
         _upsert_stations(stations, city)
 
         # 2) 抓槍即時狀態
+        got_connectors = 0
         live_data = _tdx_get(token, EV_LIVE_STATUS_PATH, city)
         if live_data is not None:
             statuses = live_data.get("LiveStatuses", [])
+            got_connectors = len(statuses)
             _upsert_connectors(statuses)
 
         # 3) 從 DB 算統計回傳
         stats = db.get_city_stats(city)
-        _cache[city] = stats
+        # 只在「這次有抓到槍、且統計有資料」時才快取;
+        # 否則(槍 API 偶發回空 / total=0)不快取,讓下次查詢能重試,
+        # 避免把 total:0 卡在快取 10 分鐘。
+        if got_connectors > 0 and stats.get("total", 0) > 0:
+            _cache[city] = stats
+        else:
+            print(f"  {city} 槍資料為空(got={got_connectors}),不快取,下次重試")
         return stats
