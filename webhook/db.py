@@ -445,3 +445,46 @@ def get_stations_by_district(city, district, limit=10):
             return cursor.fetchall()
     finally:
         conn.close()
+
+# ===== 通知時段設定(user_settings 時段欄位)=====
+
+def get_notify_window(user_id):
+    """查使用者通知時段。回傳 (start_hour, end_hour);查無設定回 (0, 24) 整天。"""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT notify_start_hour, notify_end_hour FROM user_settings WHERE user_id = %s",
+                (user_id,),
+            )
+            row = cursor.fetchone()
+        if row is None:
+            return (0, 24)
+        start = row["notify_start_hour"] if row["notify_start_hour"] is not None else 0
+        end = row["notify_end_hour"] if row["notify_end_hour"] is not None else 24
+        return (start, end)
+    finally:
+        conn.close()
+
+
+def set_notify_window(user_id, start_hour, end_hour):
+    """設定通知時段(整點,不跨夜)。回傳 True=成功。
+    若該 user 無設定列,一併建立(notify_enabled 預設 1)。"""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """INSERT INTO user_settings (user_id, notify_start_hour, notify_end_hour)
+                   VALUES (%s, %s, %s)
+                   ON DUPLICATE KEY UPDATE
+                   notify_start_hour = VALUES(notify_start_hour),
+                   notify_end_hour = VALUES(notify_end_hour)""",
+                (user_id, start_hour, end_hour),
+            )
+        conn.commit()
+        return True
+    except Exception:
+        conn.rollback()
+        return False
+    finally:
+        conn.close()

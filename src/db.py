@@ -352,6 +352,34 @@ def is_notify_enabled(user_id):
     finally:
         conn.close()
         
+# ===== 推播時段判斷(訂閱制時段設定)=====
+
+def should_notify_now(user_id):
+    
+    from datetime import datetime
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT notify_enabled, notify_start_hour, notify_end_hour "
+                "FROM user_settings WHERE user_id = %s",
+                (user_id,),
+            )
+            row = cursor.fetchone()
+    finally:
+        conn.close()
+
+    if row is None:
+        return True  # 沒設定過 = 開啟 + 整天
+
+    if not row["notify_enabled"]:
+        return False  # 總開關關閉
+
+    start = row["notify_start_hour"] if row["notify_start_hour"] is not None else 0
+    end = row["notify_end_hour"] if row["notify_end_hour"] is not None else 24
+    now_hour = datetime.now().hour  # 容器 TZ=Asia/Taipei
+    return start <= now_hour < end
+
 #測連線 
 if __name__ == "__main__":
     test_connection()

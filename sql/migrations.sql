@@ -100,3 +100,13 @@ CREATE TABLE IF NOT EXISTS user_settings (
     notify_enabled TINYINT(1) DEFAULT 1,
     updated_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
+
+-- ---------------------------------------------------------------------
+-- 2026-06-02  時段推播:user_settings 加時段欄位
+-- ---------------------------------------------------------------------
+-- 套用環境:本機 + EC2(2026-06-02 手動 ALTER)。
+-- 注意:ALTER ADD COLUMN 不支援 IF NOT EXISTS,已存在會報 Duplicate column,
+--       只能跑一次。新環境才需要,既有環境跳過此段。
+ALTER TABLE user_settings
+  ADD COLUMN notify_start_hour TINYINT DEFAULT 0,
+  ADD COLUMN notify_end_hour TINYINT DEFAULT 24;

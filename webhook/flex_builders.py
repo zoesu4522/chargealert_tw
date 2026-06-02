@@ -303,34 +303,52 @@ def build_stations_carousel(stations_with_stats):
     return {"type": "carousel", "contents": bubbles}
 
 
-def build_subscriptions_carousel(subs, notify_enabled=True):
+def build_subscriptions_carousel(subs, notify_enabled=True, window=(0, 24)):
     """
     我的訂閱清單(carousel)。
-    第一張固定是「通知總開關」設定卡(顯示目前開/關 + 切換按鈕),
+    第一張固定是「通知設定」卡(開/關切換 + 通知時段),
     後面每張是一個訂閱站 + 退訂按鈕。
-    notify_enabled: 目前通知總開關狀態。
+    notify_enabled: 通知總開關;window: (start_hour, end_hour) 目前時段。
     """
     bubbles = []
+    start, end = window
 
-    # ── 第一張:通知總開關設定卡 ──
+    # 時段顯示文字
+    if start == 0 and end == 24:
+        window_text = "⏰ 通知時段:全天"
+    else:
+        window_text = f"⏰ 通知時段:{start:02d}:00–{end:02d}:00"
+
+    # ── 第一張:通知設定卡(開關 + 時段)──
     if notify_enabled:
         state_text = "🔔 通知開啟中"
         state_color = GREEN
-        btn = {
+        toggle_btn = {
             "type": "button", "style": "secondary", "height": "sm",
             "action": {"type": "postback", "label": "🔕 暫停所有通知",
                        "data": "action=pause"},
         }
-        hint = "訂閱的站有空位時會通知你"
     else:
         state_text = "🔕 通知已暫停"
         state_color = "#999999"
-        btn = {
+        toggle_btn = {
             "type": "button", "style": "primary", "color": GREEN, "height": "sm",
             "action": {"type": "postback", "label": "🔔 恢復通知",
                        "data": "action=resume"},
         }
-        hint = "暫停期間不會收到推播(訂閱保留)"
+
+    # 三個預設時段按鈕(整點、不跨夜)
+    window_btns = [
+        {"type": "button", "style": "link", "height": "sm",
+         "action": {"type": "postback", "label": "全天",
+                    "data": "action=set_window&s=0&e=24"}},
+        {"type": "button", "style": "link", "height": "sm",
+         "action": {"type": "postback", "label": "白天 08–22",
+                    "data": "action=set_window&s=8&e=22"}},
+        {"type": "button", "style": "link", "height": "sm",
+         "action": {"type": "postback", "label": "上班 09–18",
+                    "data": "action=set_window&s=9&e=18"}},
+    ]
 
     bubbles.append({
         "type": "bubble", "size": "kilo",
@@ -345,12 +363,16 @@ def build_subscriptions_carousel(subs, notify_enabled=True):
             "contents": [
                 {"type": "text", "text": state_text, "weight": "bold", "size": "md",
                  "color": "#1A1A1A"},
-                {"type": "text", "text": hint, "size": "xs", "color": "#999999",
-                 "wrap": True, "margin": "sm"},
+                {"type": "separator", "margin": "md", "color": "#E0E0E0"},
+                {"type": "text", "text": window_text, "size": "sm",
+                 "color": "#555555", "margin": "md"},
+                {"type": "text", "text": "選擇接收通知的時段:", "size": "xxs",
+                 "color": "#999999", "margin": "sm"},
             ],
         },
         "footer": {
-            "type": "box", "layout": "vertical", "paddingAll": "md", "contents": [btn]},
+            "type": "box", "layout": "vertical", "paddingAll": "md", "spacing": "xs",
+            "contents": [toggle_btn] + window_btns},
     })
 
     # ── 後面:每個訂閱站一張卡 ──

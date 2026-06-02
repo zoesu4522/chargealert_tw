@@ -203,7 +203,7 @@ def _event_needs_cooldown(event):
     if etype == "postback":
         data = event.get("postback", {}).get("data", "")
         # 狀態切換類不冷卻(暫停/恢復要能連續操作)
-        if data in ("action=pause", "action=resume"):
+        if data in ("action=pause", "action=resume", "action=set_window") or data.startswith("action=set_window"):
             return False
         return True
     return False

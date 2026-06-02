@@ -74,6 +74,9 @@ def handle_postback(data: str, user_id: str = None) -> dict:
     if action == "resume":
         return _set_notify(user_id, True)
 
+    if action == "set_window":
+        return _set_window(user_id, params.get("s"), params.get("e"))
+
     if action == "districts" and city:
         return _list_districts(city)
 
@@ -187,6 +190,7 @@ def _my_subscriptions(user_id):
         return {"type": "text", "text": "無法識別使用者,請稍後再試 🙏"}
     subs = db.get_user_subscriptions(user_id)
     enabled = db.get_notify_enabled(user_id)
+    window = db.get_notify_window(user_id)
     if not subs:
         # 沒訂閱也讓使用者能看到/切換通知總開關
         state = "🔔 通知已開啟" if enabled else "🔕 通知已暫停"
@@ -196,7 +200,7 @@ def _my_subscriptions(user_id):
             f"目前狀態:{state}"
         )}
     return {"type": "flex", "altText": "我的訂閱",
-            "contents": fb.build_subscriptions_carousel(subs, notify_enabled=enabled)}
+            "contents": fb.build_subscriptions_carousel(subs, notify_enabled=enabled, window=window)}
 
 
 def _set_notify(user_id, enabled):
@@ -205,6 +209,19 @@ def _set_notify(user_id, enabled):
     db.set_notify_enabled(user_id, enabled)
     # 設定後直接回「更新後的我的訂閱」,使用者馬上看到新狀態 + 可再切換,
     # 不用重新點「我的訂閱」。
+    return _my_subscriptions(user_id)
+
+
+def _set_window(user_id, s, e):
+    if not user_id:
+        return {"type": "text", "text": "無法識別使用者,請稍後再試 🙏"}
+    try:
+        start = int(s)
+        end = int(e)
+    except (TypeError, ValueError):
+        return {"type": "text", "text": "時段設定有誤,請再試一次 🙏"}
+    db.set_notify_window(user_id, start, end)
+    # 設定後回更新的我的訂閱,馬上看到新時段
     return _my_subscriptions(user_id)
 
 
