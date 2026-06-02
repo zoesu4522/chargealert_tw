@@ -131,6 +131,18 @@
   html[data-theme="dark"] .tabs button.active { color: #0a0e14; }
   @media (max-width: 560px) { .tabs { width: 100%; justify-content: center; } }
 
+  .data-scope {
+    display: flex; align-items: flex-start; gap: 0.5rem;
+    background: color-mix(in srgb, var(--cyan) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--cyan) 25%, transparent);
+    border-radius: 10px; padding: 0.7rem 0.9rem; margin-bottom: 1.25rem;
+    font-size: 0.8rem; color: var(--muted); line-height: 1.5;
+  }
+  .data-scope strong { color: var(--cyan); }
+  .data-scope .scope-dot {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--cyan);
+    margin-top: 0.45rem; flex-shrink: 0;
+  }
   .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
   .kpi {
     background: linear-gradient(160deg, var(--panel-2), var(--panel));
@@ -241,6 +253,11 @@
 
   <main class="page">
     <div id="errBox" class="err"></div>
+
+    <div class="data-scope">
+      <span class="scope-dot"></span>
+      <span><strong>桃園市</strong>為完整即時監控(每 15 分鐘更新);其他縣市為查詢時動態納入,故總數會隨使用增長。天氣涵蓋全台主要縣市。</span>
+    </div>
 
     <section class="kpis" id="kpis"></section>
 
