@@ -136,8 +136,10 @@ def build_answer(user_text: str):
     )
 
 
-async def handle_events(events: list) -> None:
-    for event in events:
+async def handle_events(events: list, acquired_flags: list = None) -> None:
+    if acquired_flags is None:
+        acquired_flags = [None] * len(events)
+    for event, acquired in zip(events, acquired_flags):
         etype = event.get("type")
         reply_token = event.get("replyToken")
         if not reply_token:
@@ -147,11 +149,9 @@ async def handle_events(events: list) -> None:
         # ── postback:Rich Menu / 卡片按鈕 ──
         if etype == "postback":
             data = event.get("postback", {}).get("data", "")
-            # 只對「慢」的 On-Demand 操作防連點(查縣市/選區);
-            # 快操作(我的訂閱/暫停/恢復/訂閱等)不擋,以免正常連續操作被誤判。
-            slow = any(data.startswith(p) for p in
-                       ("action=query", "action=districts", "action=district"))
-            if slow and not rate_limit.try_acquire(user_id):
+            # acquired 由 webhook 同步段先判定:
+            #   False = 慢操作但沒搶到鎖(連點被擋) / True = 搶到(處理完要 release) / None = 非慢操作
+            if acquired is False:
                 await reply_to_line(reply_token, {"type": "text", "text": "⏳ 正在查詢中,請稍候…"})
                 continue
             try:
@@ -160,7 +160,7 @@ async def handle_events(events: list) -> None:
                 logger.exception("處理 postback 失敗: %s", e)
                 reply = "抱歉,系統忙碌中,請稍後再試一次 🙏"
             finally:
-                if slow:
+                if acquired:
                     rate_limit.release(user_id)
             await reply_to_line(reply_token, reply)
             continue
@@ -171,8 +171,7 @@ async def handle_events(events: list) -> None:
             if message.get("type") != "text":
                 continue
             user_text = message.get("text", "")
-            # 文字查站走 On-Demand/DB,較慢,防連點
-            if not rate_limit.try_acquire(user_id):
+            if acquired is False:
                 await reply_to_line(reply_token, {"type": "text", "text": "⏳ 正在查詢中,請稍候…"})
                 continue
             try:
@@ -181,7 +180,8 @@ async def handle_events(events: list) -> None:
                 logger.exception("處理訊息失敗: %s", e)
                 answer = "抱歉,系統忙碌中,請稍後再試一次 🙏"
             finally:
-                rate_limit.release(user_id)
+                if acquired:
+                    rate_limit.release(user_id)
             await reply_to_line(reply_token, answer)
             continue
 
@@ -189,6 +189,18 @@ async def handle_events(events: list) -> None:
 @app.get("/")
 async def health():
     return {"status": "ok", "service": "chargealert-webhook"}
+
+
+def _event_is_slow(event):
+    """判斷此 event 是否為慢操作(需防連點)。postback 的 query/districts/district,或文字訊息。"""
+    etype = event.get("type")
+    if etype == "message" and event.get("message", {}).get("type") == "text":
+        return True
+    if etype == "postback":
+        data = event.get("postback", {}).get("data", "")
+        return any(data.startswith(p) for p in
+                   ("action=query", "action=districts", "action=district"))
+    return False
 
 
 @app.post("/webhook")
@@ -202,7 +214,21 @@ async def webhook(
         raise HTTPException(status_code=400, detail="Invalid signature")
     payload = json.loads(body or b"{}")
     events = payload.get("events", [])
-    background_tasks.add_task(handle_events, events)
+
+    # 防連點:在這個「同步段」就為慢操作搶鎖。
+    # FastAPI 的同步程式碼在 event loop 裡循序執行,並行的多個 webnook 請求
+    # 會在此一個一個通過 try_acquire,第一個搶到、後到的被擋 —— 從源頭分勝負,
+    # 避免「丟到背景後才搶」留下的競態空隙。
+    # acquired_flags[i] = True 表示第 i 個 event 搶到鎖(可處理),False=被擋(回查詢中)。
+    acquired_flags = []
+    for ev in events:
+        if _event_is_slow(ev):
+            uid = ev.get("source", {}).get("userId")
+            acquired_flags.append(rate_limit.try_acquire(uid))
+        else:
+            acquired_flags.append(None)  # 非慢操作,不涉及鎖
+
+    background_tasks.add_task(handle_events, events, acquired_flags)
     return {"status": "ok"}
 
 
