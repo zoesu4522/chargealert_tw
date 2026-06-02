@@ -6,9 +6,8 @@
 <title>ChargeAlert TW · 充電站即時監控</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
-  /* 主題亮色為預設  */
   :root {
-    --scale: 1;            /* 字級倍率,由 A-/A/A+ 控制 */
+    --scale: 1;
     --green: #16a34a;
     --amber: #d97706;
     --red:   #dc2626;
@@ -44,13 +43,11 @@
     --cyan:  #38bdf8;
     --accent: #2ee6a6;
   }
-  /* 字級三段 */
   html[data-size="sm"] { --scale: 0.88; }
   html[data-size="md"] { --scale: 1; }
   html[data-size="lg"] { --scale: 1.15; }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  /* 字級用 transition 讓 A-/A/A+ 平滑變化,消除瞬間縮放的不適感 */
   html { font-size: calc(16px * var(--scale)); transition: font-size 0.25s ease; }
   body {
     background:
@@ -59,12 +56,10 @@
       var(--bg);
     color: var(--text);
     font-family: "Segoe UI", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
-    /* flex 直向版面:撐滿視窗高度,讓 footer 能黏在底部 */
     min-height: 100vh;
     display: flex; flex-direction: column;
     transition: background 0.3s, color 0.3s;
   }
-  /* 主要內容區:套用與 header 相同的 max-width 並置中,讓內容與 logo 切齊 */
   .page {
     flex: 1 0 auto;
     width: 100%;
@@ -72,8 +67,6 @@
     margin: 0 auto;
     padding: 0 clamp(16px, 4vw, 56px) 2rem;
   }
-
-  /* Header(sticky 固定頂端;bar 滿版,內容收進置中容器)  */
   header {
     position: sticky; top: 0; z-index: 50;
     border-bottom: 1px solid var(--line);
@@ -82,7 +75,6 @@
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
   }
-  /* 內容容器:超過 max-width 後就置中,左右留白;尺寸用 px 固定,不受 A−/A/A+ 影響 */
   .header-inner {
     display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
     max-width: 1400px; margin: 0 auto;
@@ -115,22 +107,12 @@
   }
   .icon-btn:hover { border-color: var(--accent); }
 
-  /* 手機版 / 平板(≤768px):header 內容垂直堆疊並置中,360px 也適用  */
   @media (max-width: 768px) {
-    .header-inner {
-      flex-direction: column;   /* 品牌在上、控制鈕在下 */
-      align-items: center;      /* 整體置中 */
-      gap: 12px;
-    }
-    .brand { justify-content: center; flex-wrap: wrap; }   /* logo 與副標置中,必要時換行 */
-    .controls {
-      margin-left: 0;           /* 取消桌機版往右推的 margin-left:auto */
-      width: 100%;
-      justify-content: center;  /* 控制鈕整排置中 */
-    }
+    .header-inner { flex-direction: column; align-items: center; gap: 12px; }
+    .brand { justify-content: center; flex-wrap: wrap; }
+    .controls { margin-left: 0; width: 100%; justify-content: center; }
   }
 
-  /* ===== 分頁籤(沿用膠囊樣式當主導覽,尺寸稍大)===== */
   .tabs {
     display: flex; gap: 6px; flex-wrap: wrap;
     margin-bottom: 1.5rem;
@@ -149,7 +131,6 @@
   html[data-theme="dark"] .tabs button.active { color: #0a0e14; }
   @media (max-width: 560px) { .tabs { width: 100%; justify-content: center; } }
 
-  /* KPI  */
   .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
   .kpi {
     background: linear-gradient(160deg, var(--panel-2), var(--panel));
@@ -162,7 +143,6 @@
   .kpi .unit { font-size: 0.85rem; color: var(--muted); margin-left: 0.25rem; font-weight: 500; }
   @keyframes rise { from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:none;} }
 
-  /* 圖表卡 */
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
   @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 1.4rem 1.5rem; box-shadow: var(--shadow); animation: rise 0.6s ease both; }
@@ -170,12 +150,8 @@
   .card .hint { color: var(--muted); font-size: 0.78rem; margin-bottom: 1rem; }
   .card.wide { grid-column: 1 / -1; }
 
-  /* 分頁面板:用 hidden 屬性切換。注意 .grid 的 display:grid 比瀏覽器內建的
-     [hidden]{display:none} 優先,所以這裡明確壓下去,被隱藏的頁籤才不會還露出來。 */
   .tabpanel[hidden] { display: none !important; }
 
-  /* 關鍵修正:用固定像素高度的 wrapper 包 canvas,Chart.js 才不會爆版/壓扁。
-     canvas 一定要 position:absolute 填滿 wrapper。 */
   .chart-wrap { position: relative; width: 100%; height: 320px; }
   .chart-wrap.tall { height: 420px; }
   .chart-wrap canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
@@ -184,7 +160,7 @@
     .chart-wrap.tall { height: 380px; }
   }
 
-  /* ===== 天氣卡 ===== */
+  /* ===== 天氣卡(舊單縣市樣式,保留相容) ===== */
   .weather-body { display: flex; flex-wrap: wrap; align-items: center; gap: 1.5rem; margin-bottom: 1rem; }
   .weather-main { display: flex; align-items: center; gap: 1rem; }
   .weather-emoji { font-size: 3rem; line-height: 1; }
@@ -201,7 +177,34 @@
   }
   @media (max-width: 560px) { .weather-meta { margin-left: 0; } }
 
-  /* Footer(尺寸固定 px;用 flex 自動換行,每段不從中間斷字) */
+  /* ===== 多縣市天氣總覽 ===== */
+  .wx-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 0.85rem;
+  }
+  .wx-tile {
+    background: linear-gradient(160deg, var(--panel-2), var(--panel));
+    border: 1px solid var(--line); border-radius: 14px;
+    padding: 1rem 1.1rem;
+    display: flex; flex-direction: column; gap: 0.4rem;
+    transition: border-color 0.15s, transform 0.15s;
+    cursor: default;
+  }
+  .wx-tile:hover { border-color: var(--cyan); transform: translateY(-2px); }
+  .wx-tile .wx-top { display: flex; align-items: center; justify-content: space-between; }
+  .wx-tile .wx-city { font-size: 0.95rem; font-weight: 700; }
+  .wx-tile .wx-ico { font-size: 1.8rem; line-height: 1; }
+  .wx-tile .wx-cond { font-size: 0.8rem; color: var(--muted); }
+  .wx-tile .wx-nums { display: flex; align-items: baseline; gap: 0.5rem; margin-top: 0.15rem; }
+  .wx-tile .wx-temp { font-size: 1.35rem; font-weight: 800; }
+  .wx-tile .wx-pop { font-size: 0.82rem; color: var(--cyan); font-weight: 700; }
+  .wx-tile .wx-adv {
+    font-size: 0.74rem; color: var(--muted); line-height: 1.45;
+    margin-top: 0.3rem; padding-top: 0.5rem; border-top: 1px solid var(--line);
+  }
+  .wx-tile.loading { opacity: 0.5; }
+
   footer {
     flex-shrink: 0;
     color: var(--muted); font-size: 12px;
@@ -239,19 +242,17 @@
   <main class="page">
     <div id="errBox" class="err"></div>
 
-    <!-- KPI 常駐最上方,不隨頁籤切換 -->
     <section class="kpis" id="kpis"></section>
 
-    <!-- 分頁籤 -->
     <div class="tabs" id="tabBar">
       <button data-tab="overview" class="active">總覽</button>
+      <button data-tab="weather">天氣</button>
       <button data-tab="trend">趨勢</button>
       <button data-tab="rank">排名</button>
     </div>
 
-    <!-- ===== 總覽:天氣 + 狀態分布 + AC/DC ===== -->
+    <!-- ===== 總覽:狀態分布 + AC/DC ===== -->
     <section class="grid tabpanel" data-panel="overview">
-      <div class="card wide" id="weatherCard"></div>
       <div class="card">
         <h2>🔌 充電槍狀態分布</h2>
         <div class="hint">目前所有監測站點的即時狀態占比</div>
@@ -264,7 +265,16 @@
       </div>
     </section>
 
-    <!-- ===== 趨勢:可用量趨勢 + 變化活躍度 ===== -->
+    <!-- ===== 天氣:多縣市總覽 ===== -->
+    <section class="grid tabpanel" data-panel="weather" hidden>
+      <div class="card wide">
+        <h2>🌤️ 各縣市天氣總覽</h2>
+        <div class="hint">主要縣市即時天氣與充電建議(資料來源:中央氣象署 CWA)</div>
+        <div class="wx-grid" id="wxGrid"></div>
+      </div>
+    </section>
+
+    <!-- ===== 趨勢 ===== -->
     <section class="grid tabpanel" data-panel="trend" hidden>
       <div class="card wide">
         <h2>📈 可用量趨勢</h2>
@@ -278,7 +288,7 @@
       </div>
     </section>
 
-    <!-- ===== 排名:Top 10 ===== -->
+    <!-- ===== 排名 ===== -->
     <section class="grid tabpanel" data-panel="rank" hidden>
       <div class="card wide">
         <h2>🏆 可用充電槍最多的站(Top 10)</h2>
@@ -297,13 +307,11 @@
   </footer>
 
 <script>
-// ===== 主題 & 字級切換 =====
 const root = document.documentElement;
 const themeBtn = document.getElementById('themeBtn');
 function applyTheme(t) {
   root.setAttribute('data-theme', t);
   themeBtn.textContent = (t === 'light') ? '🌙' : '☀️';
-  // 主題換色後,重畫圖表讓格線/文字顏色跟著變(天氣卡用 CSS 變數,會自動跟著換)
   refreshChartColors();
 }
 themeBtn.addEventListener('click', () => {
@@ -313,28 +321,23 @@ document.getElementById('sizeGroup').addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b) return;
   root.setAttribute('data-size', b.dataset.size);
   document.querySelectorAll('#sizeGroup button').forEach(x => x.classList.toggle('active', x === b));
-  // 字級變動會改變容器尺寸,通知圖表重算
   resizeVisibleCharts();
 });
 
-// ===== 分頁籤切換 =====
 document.getElementById('tabBar').addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b) return;
   const tab = b.dataset.tab;
   document.querySelectorAll('#tabBar button').forEach(x => x.classList.toggle('active', x === b));
   document.querySelectorAll('.tabpanel').forEach(p => { p.hidden = (p.dataset.panel !== tab); });
-  // 切到的頁籤剛從 display:none 變可見,圖表尺寸要重算,否則會空白/壓扁
   resizeVisibleCharts();
 });
 
-// 等一個 frame 讓版面算好,再 resize 全部圖表(隱藏的 resize 無害,可見的會被修正)
 function resizeVisibleCharts() {
   requestAnimationFrame(() => {
     Object.values(charts).forEach(c => c && c.resize());
   });
 }
 
-// ===== 顏色取用(讀 CSS 變數,主題切換後即時更新) =====
 function cssVar(name) { return getComputedStyle(root).getPropertyValue(name).trim(); }
 function palette() {
   return { green: cssVar('--green'), amber: cssVar('--amber'), red: cssVar('--red'),
@@ -342,9 +345,8 @@ function palette() {
            text: cssVar('--text'), panel: cssVar('--panel') };
 }
 
-// status / acdc / top / history / activity 五個圖表實例
 const charts = { status: null, acdc: null, top: null, history: null, activity: null };
-let DATA = null; // 存查到的資料,重畫時用
+let DATA = null;
 
 function refreshChartColors() {
   if (!DATA) return;
@@ -353,7 +355,17 @@ function refreshChartColors() {
   resizeVisibleCharts();
 }
 
-// ===== 範例資料 fallback(本機預覽用) =====
+// 多縣市天氣:要查的縣市(英文 code 對應後端 city 參數,中文僅顯示備援)
+const WX_CITIES = [
+  { code: 'Taipei',     zh: '台北市' },
+  { code: 'NewTaipei',  zh: '新北市' },
+  { code: 'Taoyuan',    zh: '桃園市' },
+  { code: 'HsinchuCity',zh: '新竹市' },
+  { code: 'Taichung',   zh: '台中市' },
+  { code: 'Tainan',     zh: '台南市' },
+  { code: 'Kaohsiung',  zh: '高雄市' },
+];
+
 const SAMPLE = {
   stats: { station_count: 354, total: 1577, available: 1128, ac_available: 980, ac_total: 1300, dc_available: 148, dc_total: 277 },
   distribution: [ {status:1,label:'空閒',count:1128}, {status:2,label:'使用中',count:245}, {status:3,label:'離線',count:204} ],
@@ -396,7 +408,6 @@ function kpiCard(label, value, unit, color) {
   return `<div class="kpi" style="--bar:${color}"><div class="label">${label}</div><div class="value">${value.toLocaleString()}<span class="unit">${unit}</span></div></div>`;
 }
 
-// ===== 天氣卡 =====
 function weatherEmoji(wx) {
   if (!wx) return '🌡️';
   if (wx.includes('雷')) return '⛈️';
@@ -407,33 +418,42 @@ function weatherEmoji(wx) {
   if (wx.includes('晴')) return '☀️';
   return '🌤️';
 }
-function fmtPeriod(ts) { return ts ? ts.slice(5, 16).replace('-', '/') : ''; }
 
-function renderWeather(w) {
-  const el = document.getElementById('weatherCard');
-  if (!w || w.ok === false) {
-    el.innerHTML = `<h2>🌤️ 天氣</h2><div class="hint">天氣資料暫時無法取得,稍後會自動恢復。</div>`;
-    return;
-  }
-  const emoji = weatherEmoji(w.weather);
-  const cached = w.cached ? ' · 快取' : '';
-  el.innerHTML = `
-    <h2>${emoji} ${w.location} 天氣</h2>
-    <div class="hint">預報時段 ${fmtPeriod(w.period_start)} ～ ${fmtPeriod(w.period_end)} · 來源 ${w.source}${cached}</div>
-    <div class="weather-body">
-      <div class="weather-main">
-        <div class="weather-emoji">${emoji}</div>
-        <div>
-          <div class="weather-wx">${w.weather}</div>
-          <div class="weather-temp">${w.min_temp}° – ${w.max_temp}°C</div>
-        </div>
-      </div>
-      <div class="weather-meta">
-        <div class="weather-stat"><span>降雨機率</span><strong>${w.pop}%</strong></div>
-      </div>
-    </div>
-    <div class="weather-advisory">💡 ${w.advisory}</div>
-  `;
+// ===== 多縣市天氣:先放骨架,再各自非同步填入 =====
+function renderWeatherGrid() {
+  const grid = document.getElementById('wxGrid');
+  grid.innerHTML = WX_CITIES.map(c =>
+    `<div class="wx-tile loading" id="wx-${c.code}">
+       <div class="wx-top"><span class="wx-city">${c.zh}</span><span class="wx-ico">⏳</span></div>
+       <div class="wx-cond">載入中…</div>
+     </div>`
+  ).join('');
+
+  WX_CITIES.forEach(async (c) => {
+    const w = await getJSON('/api/weather?city=' + c.code, null);
+    const tile = document.getElementById('wx-' + c.code);
+    if (!tile) return;
+    if (!w || w.ok === false) {
+      tile.classList.remove('loading');
+      tile.innerHTML =
+        `<div class="wx-top"><span class="wx-city">${c.zh}</span><span class="wx-ico">🌤️</span></div>
+         <div class="wx-cond">資料暫時無法取得</div>`;
+      return;
+    }
+    const emoji = weatherEmoji(w.weather);
+    tile.classList.remove('loading');
+    tile.innerHTML =
+      `<div class="wx-top">
+         <span class="wx-city">${w.location || c.zh}</span>
+         <span class="wx-ico">${emoji}</span>
+       </div>
+       <div class="wx-cond">${w.weather || ''}</div>
+       <div class="wx-nums">
+         <span class="wx-temp">${w.min_temp}–${w.max_temp}°</span>
+         <span class="wx-pop">☔ ${w.pop}%</span>
+       </div>
+       ${w.advisory ? `<div class="wx-adv">💡 ${w.advisory}</div>` : ''}`;
+  });
 }
 
 function drawCharts() {
@@ -471,7 +491,6 @@ function drawCharts() {
       scales:{ x:{beginAtZero:true, grid:{color:P.grid}}, y:{grid:{display:false}} } },
   });
 
-  // 可用量趨勢(折線圖)— y 軸不從 0 開始,讓可用量的波動看得清楚
   charts.history = new Chart(document.getElementById('historyChart'), {
     type:'line',
     data:{ labels:h.map(x=>x.t.slice(11,16)), datasets:[
@@ -486,7 +505,6 @@ function drawCharts() {
                x:{grid:{display:false}, ticks:{maxTicksLimit:12, autoSkip:true}} } },
   });
 
-  // 變化活躍度(長條圖)— x 軸取「MM-DD HH:00」,標籤太多時自動跳過
   charts.activity = new Chart(document.getElementById('activityChart'), {
     type:'bar',
     data:{ labels:a.map(x=>x.t.slice(5,16)), datasets:[
@@ -504,8 +522,7 @@ async function render() {
   const stations = (await getJSON('/api/top-stations', {stations:SAMPLE.stations})).stations;
   const history = (await getJSON('/api/history?hours=24&type=ALL', {history:SAMPLE.history})).history;
   const activity = (await getJSON('/api/activity?hours=48', {activity:SAMPLE.activity})).activity;
-  const weather = await getJSON('/api/weather', SAMPLE.weather);
-  DATA = { stats, distribution, stations, history, activity, weather };
+  DATA = { stats, distribution, stations, history, activity };
 
   document.getElementById('kpis').innerHTML =
     kpiCard('監測站點', stats.station_count, '站', cssVar('--cyan')) +
@@ -513,7 +530,7 @@ async function render() {
     kpiCard('目前可用', stats.available, '支', cssVar('--green')) +
     kpiCard('使用中 + 離線', stats.total - stats.available, '支', cssVar('--amber'));
 
-  renderWeather(weather);
+  renderWeatherGrid();
   drawCharts();
 }
 render();
