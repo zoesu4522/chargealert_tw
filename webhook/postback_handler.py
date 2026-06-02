@@ -74,6 +74,13 @@ def handle_postback(data: str, user_id: str = None) -> dict:
     if action == "resume":
         return _set_notify(user_id, True)
 
+    if action == "districts" and city:
+        return _list_districts(city)
+
+    if action == "district" and city:
+        d = params.get("d")
+        return _stations_in_district(city, d)
+
     if action == "about":
         return {"type": "text", "text": (
             "🔌 ChargeAlert TW 充電站智慧通報\n\n"
@@ -96,7 +103,7 @@ def _charging_card(city, user_id=None):
         if stats.get("error"):
             return {"type": "text", "text": stats.get("message", "查詢失敗,請稍後再試")}
         return {"type": "flex", "altText": f"{_city_zh(city)} 充電概況",
-                "contents": fb.build_city_charging_bubble(_city_zh(city), stats)}
+                "contents": fb.build_city_charging_bubble(_city_zh(city), stats, city_code=city)}
     except Exception:
         return {"type": "text", "text": f"查詢 {_city_zh(city)} 時發生問題,請稍後再試 🙏"}
 
@@ -199,3 +206,36 @@ def _set_notify(user_id, enabled):
     if enabled:
         return {"type": "text", "text": "🔔 已恢復通知\n\n訂閱的站有空位時會再次通知你。"}
     return {"type": "text", "text": "🔕 已暫停所有通知\n\n訂閱保留著,期間不會收到推播。\n隨時可到「我的訂閱」恢復。"}
+
+
+def _list_districts(city):
+    """列出某縣市的行政區選單。資料未到位時給友善提示。"""
+    try:
+        districts = db.get_districts(city)
+        if not districts:
+            return {"type": "text", "text": (
+                f"{_city_zh(city)} 的分區資料準備中 🚧\n"
+                f"可以直接打地名或站名查詢(例如「中壢」)。"
+            )}
+        return {"type": "flex", "altText": f"{_city_zh(city)} 依區找站",
+                "contents": fb.build_districts_carousel(city, _city_zh(city), districts)}
+    except Exception:
+        return {"type": "text", "text": "查詢分區時發生問題,請稍後再試 🙏"}
+
+
+def _stations_in_district(city, district):
+    """列出某縣市某區的充電站(可訂閱)。"""
+    if not district:
+        return {"type": "text", "text": "請選擇一個區 🙏"}
+    try:
+        stations = db.get_stations_by_district(city, district, limit=10)
+        if not stations:
+            return {"type": "text", "text": f"{district}目前查無充電站。"}
+        with_stats = []
+        for st in stations:
+            stats = db.get_station_stats(st["station_id"])
+            with_stats.append((st, stats))
+        return {"type": "flex", "altText": f"{district} 充電站",
+                "contents": fb.build_stations_carousel(with_stats)}
+    except Exception:
+        return {"type": "text", "text": "查詢該區充電站時發生問題,請稍後再試 🙏"}

@@ -358,3 +358,34 @@ def build_subscriptions_carousel(subs, notify_enabled=True):
             },
         })
     return {"type": "carousel", "contents": bubbles}
+
+def build_districts_carousel(city_code, city_zh, districts):
+    """
+    某縣市的行政區選單(carousel)。每張卡一個區 + 站數 + 「看這區的站」按鈕。
+    districts: [{"district":..., "cnt":...}, ...] 來自 db.get_districts
+    """
+    bubbles = []
+    for d in districts[:12]:  # carousel 上限 12
+        dname = d.get("district") or "未分區"
+        cnt = d.get("cnt", 0)
+        bubbles.append({
+            "type": "bubble", "size": "micro",
+            "body": {
+                "type": "box", "layout": "vertical", "paddingAll": "md", "spacing": "xs",
+                "contents": [
+                    {"type": "text", "text": dname, "size": "md", "weight": "bold",
+                     "align": "center", "color": "#1A1A1A", "wrap": True},
+                    {"type": "text", "text": f"{cnt} 站", "size": "xs",
+                     "align": "center", "color": "#999999"},
+                ],
+            },
+            "footer": {
+                "type": "box", "layout": "vertical", "paddingAll": "sm",
+                "contents": [{
+                    "type": "button", "style": "primary", "color": GREEN, "height": "sm",
+                    "action": {"type": "postback", "label": "看這區",
+                               "data": f"action=district&city={city_code}&d={dname}"},
+                }],
+            },
+        })
+    return {"type": "carousel", "contents": bubbles}

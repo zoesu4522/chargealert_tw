@@ -402,3 +402,46 @@ def set_notify_enabled(user_id, enabled):
         return False
     finally:
         conn.close()
+
+# ===== 選區找站(district)=====
+
+def get_districts(city):
+    """
+    查某縣市 DB 現有的行政區清單(含每區站數),依站數多到少。
+    只回有 district 的站。回傳 [{"district": "中壢區", "cnt": 62}, ...]
+    資料到位的縣市(如桃園)即時可用;沒資料的縣市回空清單。
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """SELECT district, COUNT(*) AS cnt
+                   FROM station_info
+                   WHERE city = %s AND district IS NOT NULL AND district != ''
+                   GROUP BY district
+                   ORDER BY cnt DESC""",
+                (city,),
+            )
+            return cursor.fetchall()
+    finally:
+        conn.close()
+
+
+def get_stations_by_district(city, district, limit=10):
+    """
+    查某縣市某區的充電站(給選區後列站用)。
+    回傳 [{station_id, station_name, address}, ...],最多 limit 筆。
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """SELECT station_id, station_name, address
+                   FROM station_info
+                   WHERE city = %s AND district = %s
+                   LIMIT %s""",
+                (city, district, limit),
+            )
+            return cursor.fetchall()
+    finally:
+        conn.close()
