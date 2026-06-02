@@ -151,11 +151,9 @@ async def handle_events(events: list) -> None:
             # 快操作(我的訂閱/暫停/恢復/訂閱等)不擋,以免正常連續操作被誤判。
             slow = any(data.startswith(p) for p in
                        ("action=query", "action=districts", "action=district"))
-            if slow and rate_limit.is_busy(user_id):
+            if slow and not rate_limit.try_acquire(user_id):
                 await reply_to_line(reply_token, {"type": "text", "text": "⏳ 正在查詢中,請稍候…"})
                 continue
-            if slow:
-                rate_limit.mark_busy(user_id)
             try:
                 reply = postback_handler.handle_postback(data, user_id)
             except Exception as e:
@@ -163,7 +161,7 @@ async def handle_events(events: list) -> None:
                 reply = "抱歉,系統忙碌中,請稍後再試一次 🙏"
             finally:
                 if slow:
-                    rate_limit.clear(user_id)
+                    rate_limit.release(user_id)
             await reply_to_line(reply_token, reply)
             continue
 
@@ -174,17 +172,16 @@ async def handle_events(events: list) -> None:
                 continue
             user_text = message.get("text", "")
             # 文字查站走 On-Demand/DB,較慢,防連點
-            if rate_limit.is_busy(user_id):
+            if not rate_limit.try_acquire(user_id):
                 await reply_to_line(reply_token, {"type": "text", "text": "⏳ 正在查詢中,請稍候…"})
                 continue
-            rate_limit.mark_busy(user_id)
             try:
                 answer = build_answer(user_text)
             except Exception as e:
                 logger.exception("處理訊息失敗: %s", e)
                 answer = "抱歉,系統忙碌中,請稍後再試一次 🙏"
             finally:
-                rate_limit.clear(user_id)
+                rate_limit.release(user_id)
             await reply_to_line(reply_token, answer)
             continue
 
