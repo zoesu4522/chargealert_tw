@@ -86,3 +86,10 @@ CREATE TABLE IF NOT EXISTS user_subscriptions (
     INDEX idx_station_active (station_id, active),
     INDEX idx_user_active (user_id, active)
 );
+
+-- user_settings:使用者層級設定(通知總開關等)。
+CREATE TABLE IF NOT EXISTS user_settings (
+    user_id        VARCHAR(100) PRIMARY KEY,
+    notify_enabled TINYINT(1) DEFAULT 1,
+    updated_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);

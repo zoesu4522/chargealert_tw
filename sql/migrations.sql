@@ -90,3 +90,13 @@ CREATE TABLE IF NOT EXISTS user_subscriptions (
     INDEX idx_station_active (station_id, active),
     INDEX idx_user_active (user_id, active)
 );
+
+-- ---------------------------------------------------------------------
+-- 2026-06-02  全域暫停開關:user_settings
+-- ---------------------------------------------------------------------
+-- 套用環境:本機 + EC2(2026-06-02 手動建)。IF NOT EXISTS 可重跑。
+CREATE TABLE IF NOT EXISTS user_settings (
+    user_id        VARCHAR(100) PRIMARY KEY,
+    notify_enabled TINYINT(1) DEFAULT 1,
+    updated_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
