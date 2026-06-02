@@ -364,3 +364,41 @@ def get_station_info(station_id):
             return cursor.fetchone()
     finally:
         conn.close()
+
+# ===== 使用者設定(user_settings)=====
+
+def get_notify_enabled(user_id):
+    """查使用者是否開啟通知。查無設定視同開啟(True)。"""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT notify_enabled FROM user_settings WHERE user_id = %s",
+                (user_id,),
+            )
+            row = cursor.fetchone()
+        if row is None:
+            return True  # 沒設定過 = 預設開啟
+        return bool(row["notify_enabled"])
+    finally:
+        conn.close()
+
+
+def set_notify_enabled(user_id, enabled):
+    """設定使用者通知開關。enabled: True=開 / False=暫停。回傳 True=成功。"""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """INSERT INTO user_settings (user_id, notify_enabled)
+                   VALUES (%s, %s)
+                   ON DUPLICATE KEY UPDATE notify_enabled = VALUES(notify_enabled)""",
+                (user_id, 1 if enabled else 0),
+            )
+        conn.commit()
+        return True
+    except Exception:
+        conn.rollback()
+        return False
+    finally:
+        conn.close()

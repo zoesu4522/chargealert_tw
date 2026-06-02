@@ -68,6 +68,12 @@ def handle_postback(data: str, user_id: str = None) -> dict:
     if action == "my_subs":
         return _my_subscriptions(user_id)
 
+    if action == "pause":
+        return _set_notify(user_id, False)
+
+    if action == "resume":
+        return _set_notify(user_id, True)
+
     if action == "about":
         return {"type": "text", "text": (
             "🔌 ChargeAlert TW 充電站智慧通報\n\n"
@@ -173,7 +179,23 @@ def _my_subscriptions(user_id):
     if not user_id:
         return {"type": "text", "text": "無法識別使用者,請稍後再試 🙏"}
     subs = db.get_user_subscriptions(user_id)
+    enabled = db.get_notify_enabled(user_id)
     if not subs:
-        return {"type": "text", "text": "你目前沒有訂閱任何充電站。\n查詢充電站後,點「🔔 訂閱這站」即可加入。"}
+        # 沒訂閱也讓使用者能看到/切換通知總開關
+        state = "🔔 通知已開啟" if enabled else "🔕 通知已暫停"
+        return {"type": "text", "text": (
+            f"你目前沒有訂閱任何充電站。\n"
+            f"查詢充電站後,點「🔔 訂閱這站」即可加入。\n\n"
+            f"目前狀態:{state}"
+        )}
     return {"type": "flex", "altText": "我的訂閱",
-            "contents": fb.build_subscriptions_carousel(subs)}
+            "contents": fb.build_subscriptions_carousel(subs, notify_enabled=enabled)}
+
+
+def _set_notify(user_id, enabled):
+    if not user_id:
+        return {"type": "text", "text": "無法識別使用者,請稍後再試 🙏"}
+    db.set_notify_enabled(user_id, enabled)
+    if enabled:
+        return {"type": "text", "text": "🔔 已恢復通知\n\n訂閱的站有空位時會再次通知你。"}
+    return {"type": "text", "text": "🔕 已暫停所有通知\n\n訂閱保留著,期間不會收到推播。\n隨時可到「我的訂閱」恢復。"}

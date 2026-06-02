@@ -333,6 +333,24 @@ def mark_notified(subscription_ids):
         conn.commit()
     finally:
         conn.close()
+
+# ===== 推播前查使用者通知開關(訂閱制暫停功能)=====
+
+def is_notify_enabled(user_id):
+    """推播前查:該使用者是否開啟通知。查無設定視同開啟(True)。"""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT notify_enabled FROM user_settings WHERE user_id = %s",
+                (user_id,),
+            )
+            row = cursor.fetchone()
+        if row is None:
+            return True
+        return bool(row["notify_enabled"])
+    finally:
+        conn.close()
         
 #測連線 
 if __name__ == "__main__":

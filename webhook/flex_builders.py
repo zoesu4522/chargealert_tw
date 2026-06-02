@@ -277,10 +277,58 @@ def build_stations_carousel(stations_with_stats):
     return {"type": "carousel", "contents": bubbles}
 
 
-def build_subscriptions_carousel(subs):
-    """我的訂閱清單(carousel)。每張卡一個訂閱站 + 退訂按鈕。"""
+def build_subscriptions_carousel(subs, notify_enabled=True):
+    """
+    我的訂閱清單(carousel)。
+    第一張固定是「通知總開關」設定卡(顯示目前開/關 + 切換按鈕),
+    後面每張是一個訂閱站 + 退訂按鈕。
+    notify_enabled: 目前通知總開關狀態。
+    """
     bubbles = []
-    for s in subs[:10]:
+
+    # ── 第一張:通知總開關設定卡 ──
+    if notify_enabled:
+        state_text = "🔔 通知開啟中"
+        state_color = GREEN
+        btn = {
+            "type": "button", "style": "secondary", "height": "sm",
+            "action": {"type": "postback", "label": "🔕 暫停所有通知",
+                       "data": "action=pause"},
+        }
+        hint = "訂閱的站有空位時會通知你"
+    else:
+        state_text = "🔕 通知已暫停"
+        state_color = "#999999"
+        btn = {
+            "type": "button", "style": "primary", "color": GREEN, "height": "sm",
+            "action": {"type": "postback", "label": "🔔 恢復通知",
+                       "data": "action=resume"},
+        }
+        hint = "暫停期間不會收到推播(訂閱保留)"
+
+    bubbles.append({
+        "type": "bubble", "size": "kilo",
+        "header": {
+            "type": "box", "layout": "vertical", "backgroundColor": state_color,
+            "paddingAll": "md",
+            "contents": [{"type": "text", "text": "⚙️ 通知設定", "color": "#FFFFFF",
+                          "size": "xs", "weight": "bold"}],
+        },
+        "body": {
+            "type": "box", "layout": "vertical", "paddingAll": "lg", "spacing": "sm",
+            "contents": [
+                {"type": "text", "text": state_text, "weight": "bold", "size": "md",
+                 "color": "#1A1A1A"},
+                {"type": "text", "text": hint, "size": "xs", "color": "#999999",
+                 "wrap": True, "margin": "sm"},
+            ],
+        },
+        "footer": {
+            "type": "box", "layout": "vertical", "paddingAll": "md", "contents": [btn]},
+    })
+
+    # ── 後面:每個訂閱站一張卡 ──
+    for s in subs[:9]:  # 連同設定卡共 10 張(carousel 上限)
         name = s.get("station_name") or "充電站"
         sid = s.get("station_id")
         bubbles.append({

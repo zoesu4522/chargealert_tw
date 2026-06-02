@@ -73,6 +73,9 @@ def notify_available(changes):
 
         notified_ids = []
         for sub in subscribers:
+            #暫停通知的使用者跳過(訂閱保留,只是不推)
+            if not db.is_notify_enabled(sub["user_id"]):
+                continue
             ok = send_line_flex(alt_text, bubble, to=sub["user_id"])
             if ok:
                 notified_ids.append(sub["id"])
