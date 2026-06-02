@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>ChargeAlert TW · 充電站即時監控</title>
+<link rel="icon" type="image/png" href="/img/favicon.png" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   :root {
@@ -83,6 +84,7 @@
   .brand { display: flex; align-items: center; gap: 10px; }
   .brand .logo { font-size: 26px; font-weight: 800; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
   .brand .logo .bolt { color: var(--accent); }
+  .brand .logo .logo-img { height: 30px; width: auto; display: block; }
   .brand .sub { color: var(--muted); font-size: 14px; }
   @media (max-width: 560px) { .brand .sub { display: none; } }
 
@@ -236,7 +238,7 @@
   <header>
     <div class="header-inner">
       <div class="brand">
-        <div class="logo"><span class="bolt">⚡</span> ChargeAlert TW</div>
+        <div class="logo"><img src="/img/logo.png" alt="" class="logo-img" /> ChargeAlert TW</div>
         <div class="sub">電動車充電站即時監控後台</div>
       </div>
       <div class="controls">
