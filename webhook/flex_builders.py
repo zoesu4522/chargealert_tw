@@ -20,12 +20,24 @@ GREEN_LIGHT = "#F1F8F1"
 
 # LINE Flex hero 圖(電動車充電示意圖,需公開 HTTPS URL,由 Caddy /img/ 提供)
 HERO_IMAGE_URL = "https://chargealert.zoesu.dev/img/ev_hero.jpg"
+IMG_BASE = "https://chargealert.zoesu.dev/img"
 
-def _hero():
-    """共用的 hero 圖區塊。20:13 比例,點圖不做動作。"""
+# 有專屬地標圖的縣市(其餘 fallback 用 ev_hero 通用圖)
+CITY_HERO_CODES = {"Taipei", "NewTaipei", "Taoyuan", "HsinchuCity",
+                   "Taichung", "Tainan", "Kaohsiung"}
+
+def _hero(city_code=None):
+    """
+    共用的 hero 圖區塊。20:13 比例。
+    給 city_code 且該縣市有專屬地標圖 → 用縣市圖;否則用通用 EV 圖。
+    """
+    if city_code and city_code in CITY_HERO_CODES:
+        url = f"{IMG_BASE}/city_{city_code}.jpg"
+    else:
+        url = HERO_IMAGE_URL
     return {
         "type": "image",
-        "url": HERO_IMAGE_URL,
+        "url": url,
         "size": "full",
         "aspectRatio": "20:13",
         "aspectMode": "cover",
@@ -84,7 +96,7 @@ def build_city_charging_bubble(city_zh, stats, city_code=None):
     return {
         "type": "bubble",
         "size": "kilo",
-        "hero": _hero(),
+        "hero": _hero(city_code),
         "header": {
             "type": "box", "layout": "vertical", "backgroundColor": GREEN,
             "paddingAll": "lg",
