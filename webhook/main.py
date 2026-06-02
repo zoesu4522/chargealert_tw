@@ -244,11 +244,16 @@ def api_weather(city: str = "Taoyuan"):
     return get_weather(city)
 
 @app.get("/api/stats")
-async def api_stats():
+async def api_stats(city: str = ""):
+    # city 給定且非 "all" → 只算該縣市;否則算全部(累積涵蓋)
+    if city and city.lower() != "all":
+        return db.get_city_stats(city)
     return db.get_overall_stats()
 
 @app.get("/api/status-distribution")
-async def api_status_distribution():
+async def api_status_distribution(city: str = ""):
+    if city and city.lower() != "all":
+        return {"distribution": db.get_status_distribution_by_city(city)}
     return {"distribution": db.get_status_distribution()}
 
 @app.get("/api/top-stations")

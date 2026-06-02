@@ -133,6 +133,15 @@
   html[data-theme="dark"] .tabs button.active { color: #0a0e14; }
   @media (max-width: 560px) { .tabs { width: 100%; justify-content: center; } }
 
+  .scope-bar { margin-bottom: 0.75rem; }
+  .scope-select-label { font-size: 0.85rem; color: var(--muted); display: inline-flex; align-items: center; gap: 0.5rem; }
+  .scope-select {
+    font-family: inherit; font-size: 0.85rem; font-weight: 600;
+    color: var(--text); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 0.4rem 0.7rem; cursor: pointer;
+  }
+
   .data-scope {
     display: flex; align-items: flex-start; gap: 0.5rem;
     background: color-mix(in srgb, var(--cyan) 8%, transparent);
@@ -261,6 +270,15 @@
       <span><strong>桃園市</strong>為完整即時監控(每 15 分鐘更新);其他縣市為查詢時動態納入,故總數會隨使用增長。天氣涵蓋全台主要縣市。</span>
     </div>
 
+    <div class="scope-bar">
+      <label class="scope-select-label">資料範圍:
+        <select id="citySelect" class="scope-select">
+          <option value="Taoyuan">桃園市(即時完整)</option>
+          <option value="all">全部(累積涵蓋)</option>
+        </select>
+      </label>
+    </div>
+
     <section class="kpis" id="kpis"></section>
 
     <div class="tabs" id="tabBar">
@@ -274,7 +292,7 @@
     <section class="grid tabpanel" data-panel="overview">
       <div class="card">
         <h2>🔌 充電槍狀態分布</h2>
-        <div class="hint">目前所有監測站點的即時狀態占比</div>
+        <div class="hint">目前監測站點的即時狀態占比</div>
         <div class="chart-wrap"><canvas id="statusChart"></canvas></div>
       </div>
       <div class="card">
@@ -535,23 +553,59 @@ function drawCharts() {
   });
 }
 
-async function render() {
-  const stats = await getJSON('/api/stats', SAMPLE.stats);
-  const distribution = (await getJSON('/api/status-distribution', {distribution:SAMPLE.distribution})).distribution;
-  const stations = (await getJSON('/api/top-stations', {stations:SAMPLE.stations})).stations;
-  const history = (await getJSON('/api/history?hours=24&type=ALL', {history:SAMPLE.history})).history;
-  const activity = (await getJSON('/api/activity?hours=48', {activity:SAMPLE.activity})).activity;
-  DATA = { stats, distribution, stations, history, activity };
+// 目前選的資料範圍(預設桃園即時)
+function currentCity() {
+  const sel = document.getElementById('citySelect');
+  return sel ? sel.value : 'Taoyuan';
+}
 
+// 載入 KPI + 狀態分布 + ACDC(會跟著 city 走)
+async function loadCityScopedData() {
+  const city = currentCity();
+  const q = city && city !== 'all' ? ('?city=' + encodeURIComponent(city)) : '';
+  const stats = await getJSON('/api/stats' + q, SAMPLE.stats);
+  const distribution = (await getJSON('/api/status-distribution' + q,
+                        {distribution:SAMPLE.distribution})).distribution;
+  return { stats, distribution };
+}
+
+// KPI 卡片
+function renderKpis(stats) {
   document.getElementById('kpis').innerHTML =
     kpiCard('監測站點', stats.station_count, '站', cssVar('--cyan')) +
     kpiCard('充電槍總數', stats.total, '支', cssVar('--text')) +
     kpiCard('目前可用', stats.available, '支', cssVar('--green')) +
     kpiCard('使用中 + 離線', stats.total - stats.available, '支', cssVar('--amber'));
+}
 
+async function render() {
+  // 跟 city 走的:KPI + 狀態分布
+  const { stats, distribution } = await loadCityScopedData();
+  // 不跟 city 走的(全部資料):排名 / 趨勢 / 活躍度
+  const stations = (await getJSON('/api/top-stations', {stations:SAMPLE.stations})).stations;
+  const history = (await getJSON('/api/history?hours=24&type=ALL', {history:SAMPLE.history})).history;
+  const activity = (await getJSON('/api/activity?hours=48', {activity:SAMPLE.activity})).activity;
+  DATA = { stats, distribution, stations, history, activity };
+
+  renderKpis(stats);
   renderWeatherGrid();
   drawCharts();
 }
+
+// 切換資料範圍:只重載 KPI + 狀態分布 + ACDC(趨勢/排名不動,省請求)
+async function onCityChange() {
+  const { stats, distribution } = await loadCityScopedData();
+  DATA.stats = stats;
+  DATA.distribution = distribution;
+  renderKpis(stats);
+  Object.keys(charts).forEach(k => { if (charts[k]) { charts[k].destroy(); charts[k] = null; } });
+  drawCharts();
+  resizeVisibleCharts();
+}
+
+const _citySel = document.getElementById('citySelect');
+if (_citySel) _citySel.addEventListener('change', onCityChange);
+
 render();
 </script>
 </body>

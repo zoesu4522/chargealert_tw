@@ -488,3 +488,33 @@ def set_notify_window(user_id, start_hour, end_hour):
         return False
     finally:
         conn.close()
+
+def get_status_distribution_by_city(city):
+    """
+    某縣市的狀態分布(空閒/使用中/離線各幾支)。
+    connector_status JOIN station_info 用 city 過濾。
+    回傳格式同 get_status_distribution。
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """SELECT c.current_status, COUNT(*) AS cnt
+                   FROM connector_status c
+                   JOIN station_info s ON c.station_id = s.station_id
+                   WHERE s.city = %s
+                   GROUP BY c.current_status
+                   ORDER BY c.current_status""",
+                (city,),
+            )
+            rows = cursor.fetchall()
+        return [
+            {
+                "status": r["current_status"],
+                "label": STATUS_LABELS.get(r["current_status"], "其他"),
+                "count": r["cnt"],
+            }
+            for r in rows
+        ]
+    finally:
+        conn.close()
