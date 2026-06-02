@@ -36,11 +36,14 @@ def _weather_emoji(wx):
     return "🌤️"
 
 
-def build_city_charging_bubble(city_zh, stats):
-    """單一縣市充電統計卡。stats 來自 db.get_city_stats / fetcher。"""
+def build_city_charging_bubble(city_zh, stats, city_code=None):
+    """單一縣市充電統計卡。stats 來自 db.get_city_stats / fetcher。
+    city_code:英文 code,用於「依區找站」按鈕(不給則從中文反查)。"""
     available = stats.get("available", 0)
     total = stats.get("total", 0)
     station_count = stats.get("station_count", 0)
+    if city_code is None:
+        city_code = _city_code_from_zh(city_zh)
 
     def stat_row(icon, label, avail, tot, is_total=False):
         color = GREEN if avail > 0 else "#BBBBBB"
@@ -86,12 +89,19 @@ def build_city_charging_bubble(city_zh, stats):
             }],
         },
         "footer": {
-            "type": "box", "layout": "vertical", "paddingAll": "lg",
-            "contents": [{
-                "type": "button", "style": "primary", "color": GREEN, "height": "sm",
-                "action": {"type": "postback", "label": "☂️ 看這裡的天氣",
-                           "data": f"action=weather&city={_city_code_from_zh(city_zh)}"},
-            }],
+            "type": "box", "layout": "vertical", "paddingAll": "lg", "spacing": "sm",
+            "contents": [
+                {
+                    "type": "button", "style": "primary", "color": GREEN, "height": "sm",
+                    "action": {"type": "postback", "label": "🔍 依區找站",
+                               "data": f"action=districts&city={city_code}"},
+                },
+                {
+                    "type": "button", "style": "secondary", "height": "sm",
+                    "action": {"type": "postback", "label": "☂️ 看這裡的天氣",
+                               "data": f"action=weather&city={city_code}"},
+                },
+            ],
         },
     }
 
@@ -192,6 +202,7 @@ def _city_code_from_zh(city_zh):
     # 卡片標題用的是顯示名(可能含「台」),正規化後查
     norm = city_zh.replace("臺", "台")
     return _ZH_TO_CODE.get(norm, "Taoyuan")
+
 
 def build_station_detail_bubble(info, stats, subscribed=False):
     """
@@ -358,6 +369,7 @@ def build_subscriptions_carousel(subs, notify_enabled=True):
             },
         })
     return {"type": "carousel", "contents": bubbles}
+
 
 def build_districts_carousel(city_code, city_zh, districts):
     """
