@@ -1,3 +1,11 @@
+"""
+ChargeAlert TW — LINE Webhook
+
+流程:LINE 訊息/postback -> 驗簽 -> 查 MySQL(真實數字)-> 回 LINE。
+防幻覺原則:所有「數字」都來自 db.py 的查詢。
+
+訂閱制:文字查站回帶「🔔 訂閱這站」按鈕的卡片;postback 處理訂閱/退訂/我的訂閱。
+"""
 
 import os
 import json
@@ -15,6 +23,7 @@ import db
 import bedrock_client
 import postback_handler
 import flex_builders as fb
+import rate_limit
 
 load_dotenv()
 
@@ -138,11 +147,23 @@ async def handle_events(events: list) -> None:
         # ── postback:Rich Menu / 卡片按鈕 ──
         if etype == "postback":
             data = event.get("postback", {}).get("data", "")
+            # 只對「慢」的 On-Demand 操作防連點(查縣市/選區);
+            # 快操作(我的訂閱/暫停/恢復/訂閱等)不擋,以免正常連續操作被誤判。
+            slow = any(data.startswith(p) for p in
+                       ("action=query", "action=districts", "action=district"))
+            if slow and rate_limit.is_busy(user_id):
+                await reply_to_line(reply_token, {"type": "text", "text": "⏳ 正在查詢中,請稍候…"})
+                continue
+            if slow:
+                rate_limit.mark_busy(user_id)
             try:
                 reply = postback_handler.handle_postback(data, user_id)
             except Exception as e:
                 logger.exception("處理 postback 失敗: %s", e)
                 reply = "抱歉,系統忙碌中,請稍後再試一次 🙏"
+            finally:
+                if slow:
+                    rate_limit.clear(user_id)
             await reply_to_line(reply_token, reply)
             continue
 
@@ -152,11 +173,18 @@ async def handle_events(events: list) -> None:
             if message.get("type") != "text":
                 continue
             user_text = message.get("text", "")
+            # 文字查站走 On-Demand/DB,較慢,防連點
+            if rate_limit.is_busy(user_id):
+                await reply_to_line(reply_token, {"type": "text", "text": "⏳ 正在查詢中,請稍候…"})
+                continue
+            rate_limit.mark_busy(user_id)
             try:
                 answer = build_answer(user_text)
             except Exception as e:
                 logger.exception("處理訊息失敗: %s", e)
                 answer = "抱歉,系統忙碌中,請稍後再試一次 🙏"
+            finally:
+                rate_limit.clear(user_id)
             await reply_to_line(reply_token, answer)
             continue
 
