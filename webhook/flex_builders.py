@@ -133,43 +133,72 @@ def build_city_charging_bubble(city_zh, stats, city_code=None):
 
 
 def build_weather_bubble(city_zh, weather):
-    """單一縣市天氣卡。weather 來自 get_weather()。"""
+    """單一縣市天氣卡。weather 來自 get_weather()。大 emoji + 大溫度 + 降雨色塊。"""
+    BLUE = "#1976D2"
+    BLUE_LIGHT = "#E8F1FB"
+
     if not weather.get("ok"):
-        body_text = weather.get("advisory", "天氣資料暫時無法取得")
-        temp_line = ""
-        pop_line = ""
-        emoji = "🌤️"
-    else:
-        emoji = _weather_emoji(weather.get("weather"))
-        wx = weather.get("weather", "")
-        mn = weather.get("min_temp")
-        mx = weather.get("max_temp")
-        pop = weather.get("pop")
-        temp_line = f"{mn}–{mx}°C" if mn is not None and mx is not None else ""
-        pop_line = f"降雨機率 {pop}%" if pop is not None else ""
-        body_text = weather.get("advisory", "")
+        # 資料拿不到的退化版
+        return {
+            "type": "bubble", "size": "kilo",
+            "header": {
+                "type": "box", "layout": "vertical", "backgroundColor": BLUE,
+                "paddingAll": "lg",
+                "contents": [{"type": "text", "text": f"☂️ {city_zh} 天氣",
+                              "color": "#FFFFFF", "weight": "bold", "size": "lg"}],
+            },
+            "body": {
+                "type": "box", "layout": "vertical", "paddingAll": "lg",
+                "contents": [{"type": "text",
+                              "text": weather.get("advisory", "天氣資料暫時無法取得,稍後會自動恢復。"),
+                              "size": "sm", "color": "#666666", "wrap": True}],
+            },
+        }
+
+    emoji = _weather_emoji(weather.get("weather"))
+    wx = weather.get("weather", "")
+    mn = weather.get("min_temp")
+    mx = weather.get("max_temp")
+    pop = weather.get("pop")
+    advisory = weather.get("advisory", "")
+    temp_text = f"{mn}–{mx}°" if mn is not None and mx is not None else "—"
 
     body_contents = [
-        {"type": "text", "text": f"{emoji} {weather.get('weather', '')}",
-         "size": "xl", "weight": "bold", "color": "#1A1A1A", "wrap": True},
+        # 大 emoji 當主視覺
+        {"type": "text", "text": emoji, "size": "5xl", "align": "center"},
+        # 天氣文字
+        {"type": "text", "text": wx, "size": "lg", "weight": "bold",
+         "color": "#1A1A1A", "align": "center", "wrap": True, "margin": "sm"},
+        # 大溫度
+        {"type": "text", "text": temp_text, "size": "xxl", "weight": "bold",
+         "color": BLUE, "align": "center", "margin": "sm"},
     ]
-    info_row = []
-    if temp_line:
-        info_row.append({"type": "text", "text": f"🌡️ {temp_line}", "size": "sm", "color": "#555555", "flex": 1})
-    if pop_line:
-        info_row.append({"type": "text", "text": f"💧 {pop_line}", "size": "sm", "color": "#555555", "flex": 1})
-    if info_row:
-        body_contents.append({"type": "box", "layout": "horizontal", "margin": "md", "contents": info_row})
 
-    body_contents.append({"type": "separator", "margin": "md", "color": "#D0E8D0"})
-    body_contents.append({"type": "text", "text": body_text, "size": "sm",
-                          "color": "#666666", "wrap": True, "margin": "md"})
+    # 降雨機率色塊(淡藍底,突顯)
+    if pop is not None:
+        body_contents.append({
+            "type": "box", "layout": "baseline", "margin": "lg",
+            "backgroundColor": BLUE_LIGHT, "cornerRadius": "10px",
+            "paddingAll": "md", "spacing": "sm",
+            "contents": [
+                {"type": "text", "text": "💧 降雨機率", "size": "sm",
+                 "color": "#555555", "flex": 0},
+                {"type": "text", "text": f"{pop}%", "size": "lg", "weight": "bold",
+                 "color": BLUE, "align": "end"},
+            ],
+        })
+
+    # 充電建議(advisory)
+    if advisory:
+        body_contents.append({"type": "separator", "margin": "lg", "color": "#E0E0E0"})
+        body_contents.append({"type": "text", "text": f"💡 {advisory}", "size": "xs",
+                              "color": "#888888", "wrap": True, "margin": "lg"})
 
     return {
         "type": "bubble",
         "size": "kilo",
         "header": {
-            "type": "box", "layout": "vertical", "backgroundColor": "#1976D2",
+            "type": "box", "layout": "vertical", "backgroundColor": BLUE,
             "paddingAll": "lg",
             "contents": [
                 {"type": "text", "text": f"☂️ {city_zh} 天氣", "color": "#FFFFFF",
