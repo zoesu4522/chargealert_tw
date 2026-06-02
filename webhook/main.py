@@ -152,7 +152,7 @@ async def handle_events(events: list, acquired_flags: list = None) -> None:
             # acquired 由 webhook 同步段先判定:
             #   False = 慢操作但沒搶到鎖(連點被擋) / True = 搶到(處理完要 release) / None = 非慢操作
             if acquired is False:
-                await reply_to_line(reply_token, {"type": "text", "text": "⏳ 正在查詢中,請稍候…"})
+                await reply_to_line(reply_token, {"type": "text", "text": "⏳ 操作太快,請稍候一下再點 🙏"})
                 continue
             try:
                 reply = postback_handler.handle_postback(data, user_id)
@@ -172,7 +172,7 @@ async def handle_events(events: list, acquired_flags: list = None) -> None:
                 continue
             user_text = message.get("text", "")
             if acquired is False:
-                await reply_to_line(reply_token, {"type": "text", "text": "⏳ 正在查詢中,請稍候…"})
+                await reply_to_line(reply_token, {"type": "text", "text": "⏳ 操作太快,請稍候一下再點 🙏"})
                 continue
             try:
                 answer = build_answer(user_text)
@@ -191,15 +191,21 @@ async def health():
     return {"status": "ok", "service": "chargealert-webhook"}
 
 
-def _event_is_slow(event):
-    """判斷此 event 是否為慢操作(需防連點)。postback 的 query/districts/district,或文字訊息。"""
+def _event_needs_cooldown(event):
+    """
+    判斷此 event 是否要套冷卻防連點。
+    涵蓋「會跳出卡片、連點會洗版」的互動;排除 pause/resume(狀態切換,
+    使用者可能暫停後馬上想恢復,不該被冷卻擋)。
+    """
     etype = event.get("type")
     if etype == "message" and event.get("message", {}).get("type") == "text":
         return True
     if etype == "postback":
         data = event.get("postback", {}).get("data", "")
-        return any(data.startswith(p) for p in
-                   ("action=query", "action=districts", "action=district"))
+        # 狀態切換類不冷卻(暫停/恢復要能連續操作)
+        if data in ("action=pause", "action=resume"):
+            return False
+        return True
     return False
 
 
@@ -215,18 +221,18 @@ async def webhook(
     payload = json.loads(body or b"{}")
     events = payload.get("events", [])
 
-    # 防連點:在這個「同步段」就為慢操作搶鎖。
-    # FastAPI 的同步程式碼在 event loop 裡循序執行,並行的多個 webnook 請求
-    # 會在此一個一個通過 try_acquire,第一個搶到、後到的被擋 —— 從源頭分勝負,
-    # 避免「丟到背景後才搶」留下的競態空隙。
-    # acquired_flags[i] = True 表示第 i 個 event 搶到鎖(可處理),False=被擋(回查詢中)。
+    # 防連點:在這個「同步段」就套用冷卻鎖。
+    # FastAPI 的同步程式碼在 event loop 裡循序執行,並行的多個 webhook 請求
+    # 會在此一個一個通過 try_acquire,第一個放行、冷卻期(3秒)內的其餘被擋,
+    # 從源頭分勝負。冷卻式不需 release,時間到自然過期。
+    # acquired_flags[i]: True=放行(可處理) / False=冷卻內被擋 / None=不需冷卻。
     acquired_flags = []
     for ev in events:
-        if _event_is_slow(ev):
+        if _event_needs_cooldown(ev):
             uid = ev.get("source", {}).get("userId")
             acquired_flags.append(rate_limit.try_acquire(uid))
         else:
-            acquired_flags.append(None)  # 非慢操作,不涉及鎖
+            acquired_flags.append(None)
 
     background_tasks.add_task(handle_events, events, acquired_flags)
     return {"status": "ok"}

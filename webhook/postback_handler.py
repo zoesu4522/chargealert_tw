@@ -203,9 +203,9 @@ def _set_notify(user_id, enabled):
     if not user_id:
         return {"type": "text", "text": "無法識別使用者,請稍後再試 🙏"}
     db.set_notify_enabled(user_id, enabled)
-    if enabled:
-        return {"type": "text", "text": "🔔 已恢復通知\n\n訂閱的站有空位時會再次通知你。"}
-    return {"type": "text", "text": "🔕 已暫停所有通知\n\n訂閱保留著,期間不會收到推播。\n隨時可到「我的訂閱」恢復。"}
+    # 設定後直接回「更新後的我的訂閱」,使用者馬上看到新狀態 + 可再切換,
+    # 不用重新點「我的訂閱」。
+    return _my_subscriptions(user_id)
 
 
 def _list_districts(city):
