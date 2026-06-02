@@ -391,6 +391,39 @@ def build_subscriptions_carousel(subs, notify_enabled=True, window=(0, 24)):
     for s in subs[:9]:  # 連同設定卡共 10 張(carousel 上限)
         name = s.get("station_name") or "充電站"
         sid = s.get("station_id")
+        address = s.get("address") or ""
+        avail = s.get("available")
+        total = s.get("total")
+
+        body_items = [
+            {"type": "text", "text": name, "weight": "bold", "size": "md",
+             "wrap": True, "color": "#1A1A1A"},
+        ]
+        # 地址
+        if address:
+            body_items.append({"type": "text", "text": f"📍 {address}", "size": "xs",
+                               "color": "#888888", "wrap": True, "margin": "sm"})
+        # 即時可用狀態(有查到 total 才顯示)
+        if total is not None and total > 0:
+            ok = (avail or 0) > 0
+            status_color = GREEN if ok else "#BBBBBB"
+            status_text = f"目前 {avail} / {total} 可用" if ok else f"目前 0 / {total}(滿)"
+            body_items.append({"type": "separator", "margin": "md", "color": "#E8E8E8"})
+            body_items.append({
+                "type": "box", "layout": "baseline", "margin": "md",
+                "contents": [
+                    {"type": "text", "text": "🔌", "size": "sm", "flex": 0},
+                    {"type": "text", "text": status_text, "size": "sm",
+                     "weight": "bold", "color": status_color, "margin": "sm"},
+                ],
+            })
+            body_items.append({"type": "text", "text": "有空位時會通知你", "size": "xxs",
+                               "color": "#AAAAAA", "margin": "sm"})
+        else:
+            # 查不到即時狀態(其他縣市未抓即時資料),退而求其次
+            body_items.append({"type": "text", "text": "有空位時會通知你", "size": "xs",
+                               "color": "#999999", "margin": "md"})
+
         bubbles.append({
             "type": "bubble", "size": "kilo",
             "header": {
@@ -401,12 +434,7 @@ def build_subscriptions_carousel(subs, notify_enabled=True, window=(0, 24)):
             },
             "body": {
                 "type": "box", "layout": "vertical", "paddingAll": "lg", "spacing": "sm",
-                "contents": [
-                    {"type": "text", "text": name, "weight": "bold", "size": "md",
-                     "wrap": True, "color": "#1A1A1A"},
-                    {"type": "text", "text": "有空位時會通知你", "size": "xs",
-                     "color": "#999999", "margin": "sm"},
-                ],
+                "contents": body_items,
             },
             "footer": {
                 "type": "box", "layout": "vertical", "paddingAll": "md",

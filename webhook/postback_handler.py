@@ -200,7 +200,28 @@ def _my_subscriptions(user_id):
             f"目前狀態:{state}"
         )}
     return {"type": "flex", "altText": "我的訂閱",
-            "contents": fb.build_subscriptions_carousel(subs, notify_enabled=enabled, window=window)}
+            "contents": fb.build_subscriptions_carousel(
+                _enrich_subscriptions(subs), notify_enabled=enabled, window=window)}
+
+
+def _enrich_subscriptions(subs):
+    """為每個訂閱站補上地址 + 即時可用狀態,給訂閱卡顯示。"""
+    enriched = []
+    for s in subs:
+        sid = s.get("station_id")
+        item = dict(s)
+        info = db.get_station_info(sid) if sid else None
+        if info:
+            item["address"] = info.get("address") or ""
+        try:
+            st = db.get_station_stats(sid) if sid else None
+            if st:
+                item["available"] = st.get("available", 0)
+                item["total"] = st.get("total", 0)
+        except Exception:
+            pass
+        enriched.append(item)
+    return enriched
 
 
 def _set_notify(user_id, enabled):
