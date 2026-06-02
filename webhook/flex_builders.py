@@ -192,19 +192,19 @@ def build_weather_bubble(city_zh, weather):
 
 
 def build_city_menu_carousel(action):
-    """7 大都會選單(carousel)。action=query(充電) 或 weather(天氣)。"""
-    header_text = "🗺️ 選擇縣市看充電" if action == "query" else "☂️ 選擇縣市看天氣"
+    """7 大都會選單(carousel)。action=query(充電) 或 weather(天氣)。
+    每張卡用該縣市的地標圖當 hero,取代原本的 emoji。"""
     head_color = GREEN if action == "query" else "#1976D2"
     bubbles = []
     for code, zh, emoji in MAJOR_CITIES:
         bubbles.append({
             "type": "bubble",
-            "size": "micro",
+            "size": "kilo",
+            "hero": _hero(code),  # 縣市地標圖(沒有的 fallback 通用圖)
             "body": {
-                "type": "box", "layout": "vertical", "paddingAll": "md", "spacing": "sm",
+                "type": "box", "layout": "vertical", "paddingAll": "md", "spacing": "xs",
                 "contents": [
-                    {"type": "text", "text": emoji, "size": "xxl", "align": "center"},
-                    {"type": "text", "text": zh, "size": "sm", "weight": "bold",
+                    {"type": "text", "text": zh, "size": "md", "weight": "bold",
                      "align": "center", "color": "#1A1A1A", "wrap": True},
                 ],
             },
