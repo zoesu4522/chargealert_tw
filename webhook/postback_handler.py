@@ -213,6 +213,7 @@ def _enrich_subscriptions(subs):
         info = db.get_station_info(sid) if sid else None
         if info:
             item["address"] = info.get("address") or ""
+            item["city"] = info.get("city") or ""
         try:
             st = db.get_station_stats(sid) if sid else None
             if st:

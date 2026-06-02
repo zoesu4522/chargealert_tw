@@ -394,38 +394,49 @@ def build_subscriptions_carousel(subs, notify_enabled=True, window=(0, 24)):
         address = s.get("address") or ""
         avail = s.get("available")
         total = s.get("total")
+        city_zh = s.get("city") or ""
+
+        # hero:用站所在縣市的地標圖(查不到 city 就用通用 EV 圖)
+        city_code = _city_code_from_zh(city_zh) if city_zh else None
+        hero = _hero(city_code)
 
         body_items = [
             {"type": "text", "text": name, "weight": "bold", "size": "md",
              "wrap": True, "color": "#1A1A1A"},
         ]
-        # 地址
         if address:
             body_items.append({"type": "text", "text": f"📍 {address}", "size": "xs",
                                "color": "#888888", "wrap": True, "margin": "sm"})
-        # 即時可用狀態(有查到 total 才顯示)
+
+        # 即時可用:大字色塊(填滿 + 醒目)
         if total is not None and total > 0:
             ok = (avail or 0) > 0
-            status_color = GREEN if ok else "#BBBBBB"
-            status_text = f"目前 {avail} / {total} 可用" if ok else f"目前 0 / {total}(滿)"
-            body_items.append({"type": "separator", "margin": "md", "color": "#E8E8E8"})
+            box_bg = GREEN_LIGHT if ok else "#F2F2F2"
+            num_color = GREEN if ok else "#BBBBBB"
+            label = "目前可用" if ok else "目前已滿"
             body_items.append({
-                "type": "box", "layout": "baseline", "margin": "md",
+                "type": "box", "layout": "vertical", "margin": "lg",
+                "backgroundColor": box_bg, "cornerRadius": "10px", "paddingAll": "md",
+                "spacing": "xs",
                 "contents": [
-                    {"type": "text", "text": "🔌", "size": "sm", "flex": 0},
-                    {"type": "text", "text": status_text, "size": "sm",
-                     "weight": "bold", "color": status_color, "margin": "sm"},
+                    {"type": "text", "text": label, "size": "xs", "color": "#888888"},
+                    {"type": "box", "layout": "baseline", "contents": [
+                        {"type": "text", "text": f"{avail or 0}", "size": "xxl",
+                         "weight": "bold", "color": num_color, "flex": 0},
+                        {"type": "text", "text": f"/ {total} 支", "size": "sm",
+                         "color": "#999999", "margin": "sm", "flex": 0},
+                    ]},
                 ],
             })
-            body_items.append({"type": "text", "text": "有空位時會通知你", "size": "xxs",
-                               "color": "#AAAAAA", "margin": "sm"})
+            body_items.append({"type": "text", "text": "🔔 有空位時會通知你", "size": "xxs",
+                               "color": "#AAAAAA", "margin": "md", "align": "center"})
         else:
-            # 查不到即時狀態(其他縣市未抓即時資料),退而求其次
-            body_items.append({"type": "text", "text": "有空位時會通知你", "size": "xs",
-                               "color": "#999999", "margin": "md"})
+            body_items.append({"type": "text", "text": "🔔 有空位時會通知你", "size": "xs",
+                               "color": "#999999", "margin": "lg", "align": "center"})
 
         bubbles.append({
             "type": "bubble", "size": "kilo",
+            "hero": hero,
             "header": {
                 "type": "box", "layout": "vertical", "backgroundColor": GREEN,
                 "paddingAll": "md",
