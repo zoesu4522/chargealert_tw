@@ -24,7 +24,7 @@ ICON = (22, 163, 74)        # 品牌綠 #16a34a(圖示色)
 TEXT = (30, 58, 47)         # 深綠灰文字 #1E3A2F
 ICON_BG_TINT = (241, 248, 241)  # 圖示後的圓形襯底(可選)
 
-FONT_PATH = "C:/Windows/Fonts/msjh.ttc"
+FONT_PATH = "fonts/TaipeiSansTCBeta-Bold.ttf"   # 台北黑體 粗體(設計感字型)
 
 # ---- 6 格內容:(主標題, 圖示類型) ----
 TILES = [
