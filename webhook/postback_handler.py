@@ -134,10 +134,21 @@ def _subscribe(user_id, station_id):
         )}
     ok = db.subscribe_station(user_id, station_id, name)
     if ok:
+        # 訂閱當下若已有空位,順便告知現況(避免「訂了卻沒反應」的盲點)
+        try:
+            stats = db.get_station_stats(station_id)
+            avail = stats.get("available", 0)
+        except Exception:
+            avail = 0
+        if avail > 0:
+            now_line = f"✅ 目前有 {avail} 個空位,可直接前往!\n\n"
+        else:
+            now_line = "目前暫無空位。\n\n"
         return {"type": "text", "text": (
             f"🔔 已訂閱成功!\n\n"
             f"📍 {name}\n\n"
-            f"這站有空位時會主動通知你\n"
+            f"{now_line}"
+            f"之後有空位時會主動通知你\n"
             f"(同站每小時最多通知一次)"
         )}
     return {"type": "text", "text": "訂閱失敗,請稍後再試 🙏"}
