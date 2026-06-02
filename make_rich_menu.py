@@ -15,12 +15,14 @@ MARGIN = 40          # 外framework邊距
 GAP = 30             # 格與格間距
 RADIUS = 36          # 圓角
 
-# ---- 配色 ----
-BG = (245, 243, 236)        # 米白 #F5F3EC
-TILE = (44, 95, 45)         # 深綠 #2C5F2D
-TILE_ALT = (60, 120, 60)    # 稍亮綠(交錯,讓版面有層次)
-ICON = (151, 188, 98)       # 嫩綠 #97BC62(圖示色)
-TEXT = (255, 255, 255)      # 白字
+# ---- 配色(淺底版:讓整體畫面清爽,綠當點綴而非主色)----
+BG = (244, 246, 250)        # 淺灰藍背景 #F4F6FA(跟儀表板一致)
+TILE = (255, 255, 255)      # 白 tile
+TILE_ALT = (241, 248, 241)  # 極淺綠(交錯,有層次但很淡)
+BORDER = (210, 224, 210)    # 淺綠邊框(淺底要靠邊框分隔格子)
+ICON = (22, 163, 74)        # 品牌綠 #16a34a(圖示色)
+TEXT = (30, 58, 47)         # 深綠灰文字 #1E3A2F
+ICON_BG_TINT = (241, 248, 241)  # 圖示後的圓形襯底(可選)
 
 FONT_PATH = "C:/Windows/Fonts/msjh.ttc"
 
@@ -63,7 +65,7 @@ def draw_icon(d, kind, cx, cy, s, color):
         d.polygon([(cx - r * 0.7, cy - half * 0.7 + r * 1.3),
                    (cx + r * 0.7, cy - half * 0.7 + r * 1.3),
                    (cx, cy + half)], fill=color)
-        d.ellipse([cx - r * 0.32, cy - half * 0.25, cx + r * 0.32, cy - half * 0.25 + r * 0.64], fill=TILE)
+        d.ellipse([cx - r * 0.32, cy - half * 0.25, cx + r * 0.32, cy - half * 0.25 + r * 0.64], fill=(255, 255, 255))
 
     elif kind == "rain":
         # 雲 + 三條雨絲
@@ -130,7 +132,8 @@ def main():
     for idx, (label, icon) in enumerate(TILES):
         x0, y0, x1, y1 = tile_rect(idx)
         tile_color = TILE if (idx % 2 == 0) else TILE_ALT
-        d.rounded_rectangle([x0, y0, x1, y1], radius=RADIUS, fill=tile_color)
+        d.rounded_rectangle([x0, y0, x1, y1], radius=RADIUS, fill=tile_color,
+                            outline=BORDER, width=3)
 
         cx = (x0 + x1) / 2
         # 圖示在上 1/3,文字在下 1/3
