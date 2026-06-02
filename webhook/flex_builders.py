@@ -18,6 +18,19 @@ MAJOR_CITIES = [
 GREEN = "#2E7D32"
 GREEN_LIGHT = "#F1F8F1"
 
+# LINE Flex hero 圖(電動車充電示意圖,需公開 HTTPS URL,由 Caddy /img/ 提供)
+HERO_IMAGE_URL = "https://chargealert.zoesu.dev/img/ev_hero.jpg"
+
+def _hero():
+    """共用的 hero 圖區塊。20:13 比例,點圖不做動作。"""
+    return {
+        "type": "image",
+        "url": HERO_IMAGE_URL,
+        "size": "full",
+        "aspectRatio": "20:13",
+        "aspectMode": "cover",
+    }
+
 
 # 依天氣現象文字挑 emoji(純規則)
 def _weather_emoji(wx):
@@ -71,6 +84,7 @@ def build_city_charging_bubble(city_zh, stats, city_code=None):
     return {
         "type": "bubble",
         "size": "kilo",
+        "hero": _hero(),
         "header": {
             "type": "box", "layout": "vertical", "backgroundColor": GREEN,
             "paddingAll": "lg",
@@ -263,6 +277,7 @@ def build_station_detail_bubble(info, stats, subscribed=False):
 
     return {
         "type": "bubble", "size": "kilo",
+        "hero": _hero(),
         "header": {
             "type": "box", "layout": "vertical", "backgroundColor": GREEN,
             "paddingAll": "md",

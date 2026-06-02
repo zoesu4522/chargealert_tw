@@ -1,19 +1,24 @@
 # Caddy 自動向 Let's Encrypt 申請憑證、自動續約。
 #
-# 路由分三類,都在同一個網域底下:
+# 路由分四類,都在同一個網域底下:
 #   /webhook   -> FastAPI(接收 LINE 訊息)
 #   /api/*     -> FastAPI(儀表板資料 API)
 #   /dashboard -> 靜態 HTML 儀表板(零 build,Caddy 直接吐檔案)
+#   /img/*     -> 靜態圖片(LINE Flex 卡片的圖,需公開 HTTPS URL)
 #
-# 順序重要:Caddy 會用最精確的 matcher,但這裡明確分開寫最清楚。
-
+# 順序重要:精確的 matcher(/img、/webhook、/api)放前面,
+# catch-all 的 handle{} 放最後,否則會被它先吃掉。
 chargealert.zoesu.dev {
     # 後台儀表板(靜態檔案)
     handle_path /dashboard* {
         root * /srv/dashboard
         file_server
     }
-
+    # 靜態圖片:給 LINE Flex 卡片用(car/charging hero 圖等)
+    handle_path /img* {
+        root * /srv/img
+        file_server
+    }
     # LINE webhook + 儀表板 API 都轉給 FastAPI
     handle /webhook {
         reverse_proxy webhook:8000
@@ -21,7 +26,6 @@ chargealert.zoesu.dev {
     handle /api/* {
         reverse_proxy webhook:8000
     }
-
     # 其餘(含首頁健康檢查 /)也交給 FastAPI
     handle {
         reverse_proxy webhook:8000
