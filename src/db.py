@@ -244,9 +244,11 @@ def insert_snapshot():
             now = cursor.fetchone()["now"]
 
             cursor.execute(
-                """SELECT connector_type, current_status, COUNT(*) AS cnt
-                   FROM connector_status
-                   GROUP BY connector_type, current_status"""
+                """SELECT c.connector_type, c.current_status, COUNT(*) AS cnt
+                   FROM connector_status c
+                   JOIN station_info s ON c.station_id = s.station_id
+                   WHERE s.city = 'Taoyuan'
+                   GROUP BY c.connector_type, c.current_status"""
             )
             rows = cursor.fetchall()
 
