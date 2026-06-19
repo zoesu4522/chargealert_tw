@@ -301,6 +301,10 @@ def build_station_detail_bubble(info, stats, subscribed=False):
     if address:
         body_contents.append({"type": "text", "text": address, "size": "xs",
                               "color": "#999999", "wrap": True, "margin": "sm"})
+    # 若有距離資訊(來自定位查詢),顯示「約 X km」
+    if info.get("distance_km") is not None:
+        body_contents.append({"type": "text", "text": f"📍 距離約 {info['distance_km']} km",
+                              "size": "xs", "color": GREEN, "weight": "bold", "margin": "sm"})
     body_contents.append({
         "type": "box", "layout": "vertical", "backgroundColor": GREEN_LIGHT,
         "cornerRadius": "md", "paddingAll": "md", "margin": "lg", "spacing": "sm",

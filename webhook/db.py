@@ -518,3 +518,36 @@ def get_status_distribution_by_city(city):
         ]
     finally:
         conn.close()
+
+def find_nearest_stations(lat, lng, limit=5, max_km=15):
+    """
+    找離 (lat, lng) 最近的桃園充電站(只找有即時資料的桃園站)。
+    用 Haversine 公式在 SQL 內算球面距離(km)。
+    回傳 [{station_id, station_name, address, distance_km, ...}, ...] 依距離由近到遠。
+    max_km:超過此距離視為「附近無站」,回空 list(交給上層給友善提示)。
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT station_id, station_name, address, latitude, longitude,
+                       (6371 * ACOS(
+                           LEAST(1.0,
+                             COS(RADIANS(%s)) * COS(RADIANS(latitude)) *
+                             COS(RADIANS(longitude) - RADIANS(%s)) +
+                             SIN(RADIANS(%s)) * SIN(RADIANS(latitude))
+                           )
+                       )) AS distance_km
+                FROM station_info
+                WHERE city = 'Taoyuan'
+                  AND latitude IS NOT NULL AND longitude IS NOT NULL
+                HAVING distance_km <= %s
+                ORDER BY distance_km ASC
+                LIMIT %s
+                """,
+                (lat, lng, lat, max_km, limit),
+            )
+            return cursor.fetchall()
+    finally:
+        conn.close()

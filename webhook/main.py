@@ -1,11 +1,3 @@
-"""
-ChargeAlert TW — LINE Webhook
-
-流程:LINE 訊息/postback -> 驗簽 -> 查 MySQL(真實數字)-> 回 LINE。
-防幻覺原則:所有「數字」都來自 db.py 的查詢。
-
-訂閱制:文字查站回帶「🔔 訂閱這站」按鈕的卡片;postback 處理訂閱/退訂/我的訂閱。
-"""
 
 import os
 import json
@@ -81,14 +73,15 @@ def _format_overall_facts(stats):
         f"  其中 DC 快充可用 {stats['dc_available']} / 共 {stats['dc_total']} 支"
     )
 
+_NEARBY_TRIGGERS = ("附近", "離我最近", "離我近", "定位", "我的位置", "最近的站", "附近的站", "附近充電")
 
 def build_answer(user_text: str):
-    """
-    解析意圖 -> 查 DB -> 組回覆。
-    - overall:走 LLM 講人話(需要自然語言彙整)
-    - station:直接回帶訂閱按鈕的站卡(跳過 LLM,卡片更清楚也不耗 Bedrock 配額)
-    回傳:str 或 flex dict。
-    """
+    t = (user_text or "").strip()
+    # 定位引導:想找附近 → 引導傳 LINE 位置訊息
+    if any(k in t for k in _NEARBY_TRIGGERS):
+        return ("想找離你最近的充電站嗎?📍\n"
+                "請點左下角 ➕ →「位置資訊」,把你的位置傳給我,\n"
+                "我幫你找最近的桃園充電站!⚡")
     parsed = bedrock_client.parse_intent(user_text)
     intent = parsed["intent"]
     keyword = parsed["keyword"]
@@ -135,6 +128,25 @@ def build_answer(user_text: str):
         "或問我「現在總共有多少充電槍可用」。"
     )
 
+def build_nearby_answer(lat, lng):
+    """離太遠則友善提示。"""
+    if lat is None or lng is None:
+        return "沒有收到位置資訊,請再試一次 🙏"
+    nearest = db.find_nearest_stations(lat, lng, limit=5, max_km=15)
+    if not nearest:
+        return ("目前即時定位服務以桃園為主,你附近暫無即時監測站 🙏\n"
+                "可以直接輸入其他地名查詢,例如「台北有位子嗎」。")
+    with_stats = []
+    for m in nearest:
+        stats = db.get_station_stats(m["station_id"])
+        m["distance_km"] = round(float(m["distance_km"]), 1)
+        with_stats.append((m, stats))
+    if len(with_stats) == 1:
+        info, stats = with_stats[0]
+        return {"type": "flex", "altText": "離你最近的充電站",
+                "contents": fb.build_station_detail_bubble(info, stats)}
+    return {"type": "flex", "altText": f"找到附近 {len(with_stats)} 個站",
+            "contents": fb.build_stations_carousel(with_stats)}
 
 async def handle_events(events: list, acquired_flags: list = None) -> None:
     if acquired_flags is None:
@@ -165,10 +177,28 @@ async def handle_events(events: list, acquired_flags: list = None) -> None:
             await reply_to_line(reply_token, reply)
             continue
 
-        # ── message:文字訊息 ──
+        # ── message:文字訊息 / 位置 ──
         if etype == "message":
             message = event.get("message", {})
-            if message.get("type") != "text":
+            mtype = message.get("type")
+
+            # 位置訊息:找最近的桃園充電站
+            if mtype == "location":
+                if acquired is False:
+                    await reply_to_line(reply_token, {"type": "text", "text": "⏳ 操作太快,請稍候一下再點 🙏"})
+                    continue
+                try:
+                    answer = build_nearby_answer(message.get("latitude"), message.get("longitude"))
+                except Exception as e:
+                    logger.exception("處理位置訊息失敗: %s", e)
+                    answer = "抱歉,系統忙碌中,請稍後再試一次 🙏"
+                finally:
+                    if acquired:
+                        rate_limit.release(user_id)
+                await reply_to_line(reply_token, answer)
+                continue
+
+            if mtype != "text":
                 continue
             user_text = message.get("text", "")
             if acquired is False:
@@ -198,7 +228,7 @@ def _event_needs_cooldown(event):
     使用者可能暫停後馬上想恢復,不該被冷卻擋)。
     """
     etype = event.get("type")
-    if etype == "message" and event.get("message", {}).get("type") == "text":
+    if etype == "message" and event.get("message", {}).get("type") in ("text", "location"):
         return True
     if etype == "postback":
         data = event.get("postback", {}).get("data", "")
