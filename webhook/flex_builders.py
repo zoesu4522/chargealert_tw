@@ -1,8 +1,3 @@
-"""
-flex_builders.py — 各種 LINE Flex Message 卡片建構。
-集中放這裡,讓 postback handler 專心處理流程。
-配色沿用專案綠色系:#2E7D32(深綠) / #F1F8F1(淡綠底)。
-"""
 
 # 7 大都會(選單顯示用):(英文 code, 中文顯示名, emoji)
 MAJOR_CITIES = [
@@ -303,7 +298,7 @@ def build_station_detail_bubble(info, stats, subscribed=False):
                               "color": "#999999", "wrap": True, "margin": "sm"})
     # 若有距離資訊(來自定位查詢),顯示「約 X km」
     if info.get("distance_km") is not None:
-        body_contents.append({"type": "text", "text": f"📍 距離約 {info['distance_km']} km",
+        body_contents.append({"type": "text", "text": f"📍 桃園 · 距離約 {info['distance_km']} km",
                               "size": "xs", "color": GREEN, "weight": "bold", "margin": "sm"})
     body_contents.append({
         "type": "box", "layout": "vertical", "backgroundColor": GREEN_LIGHT,

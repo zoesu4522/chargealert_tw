@@ -519,7 +519,7 @@ def get_status_distribution_by_city(city):
     finally:
         conn.close()
 
-def find_nearest_stations(lat, lng, limit=5, max_km=15):
+def find_nearest_stations(lat, lng, limit=5, max_km=8):
     """
     找離 (lat, lng) 最近的桃園充電站(只找有即時資料的桃園站)。
     用 Haversine 公式在 SQL 內算球面距離(km)。
