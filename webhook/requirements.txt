@@ -6,3 +6,5 @@ cachetools>=5.0
 python-dotenv
 boto3
 pymysql
+openai
+

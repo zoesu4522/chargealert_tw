@@ -1,20 +1,61 @@
+import os
 import json
 import logging
-import boto3
 
 logger = logging.getLogger("chargealert.bedrock")
 
-#東京區 + Haiku 4.5 的跨區推論 profile(jp.* 開頭)
+# ── LLM 後端設定:優先 OpenAI,沒設定 key 才退回 Bedrock ──────────
+# 設計:bedrock_client 對外介面(parse_intent / compose_reply)完全不變,
+#       只在底層 _invoke 切換實際打哪個 LLM。OpenAI 配額即時可用,
+#       不必等 Bedrock 配額審核;Bedrock 保留為後備,憑證/配額就緒時自動可用。
+
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
+OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+
+# Bedrock(後備)設定
 REGION = "ap-northeast-1"
 MODEL_ID = "jp.anthropic.claude-haiku-4-5-20251001-v1:0"
 
-#boto3 會自動透過 EC2 instance 的 IAM 角色拿臨時憑證,不用填 key
-_client = boto3.client("bedrock-runtime", region_name=REGION)
+_USE_OPENAI = bool(OPENAI_API_KEY)
+
+_openai_client = None
+_bedrock_client = None
+
+
+def _get_openai():
+    global _openai_client
+    if _openai_client is None:
+        from openai import OpenAI
+        _openai_client = OpenAI(api_key=OPENAI_API_KEY)
+    return _openai_client
+
+
+def _get_bedrock():
+    global _bedrock_client
+    if _bedrock_client is None:
+        import boto3
+        _bedrock_client = boto3.client("bedrock-runtime", region_name=REGION)
+    return _bedrock_client
 
 
 def _invoke(system_prompt, user_text, max_tokens=400):
-    """呼叫 Bedrock Converse API,回傳純文字。"""
-    resp = _client.converse(
+    """呼叫 LLM,回傳純文字。優先 OpenAI,否則 Bedrock。"""
+    if _USE_OPENAI:
+        client = _get_openai()
+        resp = client.chat.completions.create(
+            model=OPENAI_MODEL,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_text},
+            ],
+            max_tokens=max_tokens,
+            temperature=0.3,
+        )
+        return resp.choices[0].message.content.strip()
+
+    # 後備:Bedrock Converse API
+    client = _get_bedrock()
+    resp = client.converse(
         modelId=MODEL_ID,
         system=[{"text": system_prompt}],
         messages=[{"role": "user", "content": [{"text": user_text}]}],
@@ -24,40 +65,38 @@ def _invoke(system_prompt, user_text, max_tokens=400):
 
 
 # ── 意圖判斷:規則優先,LLM 後備 ──────────────────────────────
-# 設計:核心查詢用確定性規則保證「一定能用」,不依賴 Bedrock 配額/憑證。
-#       規則判斷不出來、且 Bedrock 可用時,才用 LLM 增強(處理較模糊的自然語言)。
+# 設計:核心查詢用確定性規則保證「一定能用」,不依賴 LLM 配額/憑證。
+#       規則判斷不出來時,才用 LLM 增強(處理較模糊的自然語言)。
 #       與 weather.py 的「規則 advisory」一致:事實層不綁 LLM。
 
-#整體概況的關鍵字
 _OVERALL_KEYWORDS = ("總共", "全部", "整體", "一共", "總數", "現在有多少", "多少充電", "概況", "全台", "所有")
-#打招呼 / 無關
 _GREETING_KEYWORDS = ("你好", "哈囉", "嗨", "hi", "hello", "你是誰", "自我介紹", "怎麼用", "功能")
-#查站常見的尾綴語助詞(抽地名時去掉)
 _STATION_SUFFIXES = ("有位子嗎", "有空位嗎", "有沒有位子", "有沒有空", "充電站", "充電", "的狀況", "狀況",
                      "有位嗎", "可以充嗎", "還有位子嗎", "在哪", "嗎", "呢", "?", "?")
 
 
 def parse_intent_rule_based(user_text):
-    """純關鍵字意圖判斷,不呼叫 Bedrock。回傳同 parse_intent 格式,或 None 表示規則拿不準。"""
+    """純關鍵字意圖判斷,不呼叫 LLM。回傳同 parse_intent 格式,或 None 表示規則拿不準。"""
     t = (user_text or "").strip()
     if not t:
         return {"intent": "other", "keyword": ""}
 
-    #整體概況
     if any(k in t for k in _OVERALL_KEYWORDS):
         return {"intent": "overall", "keyword": ""}
 
-    #打招呼 / 問功能(且不含明顯地名訊號時)
     if any(k in t for k in _GREETING_KEYWORDS) and len(t) <= 8:
         return {"intent": "other", "keyword": ""}
 
-    #其餘:當作查站,抽地名(去掉常見尾綴語助詞)
     keyword = t
     for suf in _STATION_SUFFIXES:
         keyword = keyword.replace(suf, "")
     keyword = keyword.strip()
 
-    #抽完還有東西 → 當查站;抽到空(整句都是語助詞)→ 規則拿不準,回 None
+    # 抽完仍含模糊詞(沒有明確地名)→ 規則拿不準,交給 LLM
+    _VAGUE_WORDS = ("附近", "哪裡", "哪邊", "最近", "我家", "這附近", "周圍", "周邊")
+    if keyword and any(v in keyword for v in _VAGUE_WORDS):
+        return None
+
     if keyword:
         return {"intent": "station", "keyword": keyword}
     return None
@@ -66,14 +105,13 @@ def parse_intent_rule_based(user_text):
 def parse_intent(user_text):
     """
     意圖分類。回傳 {"intent": "overall"|"station"|"other", "keyword": "..."}。
-    流程:先規則判斷;規則明確就用。規則拿不準(None)時,Bedrock 可用就用 LLM,
-          LLM 失敗(配額不足 / 無憑證 / 任何錯)則安全退回 other。
+    流程:先規則判斷;規則明確就用。規則拿不準(None)時,LLM 可用就用,
+          LLM 失敗(配額 / 憑證 / 任何錯)則安全退回 other。
     """
     rule = parse_intent_rule_based(user_text)
     if rule is not None:
         return rule
 
-    #規則拿不準 → 試 LLM(包起來,失敗不影響服務)
     system = (
         "你是一個意圖分類器,專門處理電動車充電站查詢。"
         "使用者會用中文問問題。請判斷意圖並只回傳 JSON,不要任何其他文字、不要 markdown。\n"
@@ -93,7 +131,7 @@ def parse_intent(user_text):
             intent = "other"
         return {"intent": intent, "keyword": keyword.strip()}
     except Exception as e:
-        logger.warning("LLM 意圖解析失敗(可能 Bedrock 配額/憑證問題),fallback other: %s", e)
+        logger.warning("LLM 意圖解析失敗,fallback other: %s", e)
         return {"intent": "other", "keyword": ""}
 
 
