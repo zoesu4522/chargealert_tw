@@ -132,7 +132,7 @@ def build_nearby_answer(lat, lng):
     """離太遠則友善提示。"""
     if lat is None or lng is None:
         return "沒有收到位置資訊,請再試一次 🙏"
-    nearest = db.find_nearest_stations(lat, lng, limit=5, max_km=15)
+    nearest = db.find_nearest_stations(lat, lng, limit=5, max_km=8)
     if not nearest:
         return ("目前即時定位服務以桃園為主,你附近暫無即時監測站 🙏\n"
                 "可以直接輸入其他地名查詢,例如「台北有位子嗎」。")
