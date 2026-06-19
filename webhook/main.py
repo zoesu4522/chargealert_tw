@@ -148,6 +148,17 @@ def build_nearby_answer(lat, lng):
     return {"type": "flex", "altText": f"找到附近 {len(with_stats)} 個站",
             "contents": fb.build_stations_carousel(with_stats)}
 
+def _welcome_message():
+    return (
+        "歡迎使用 ChargeAlert TW 充電站小幫手!🔌⚡\n"
+        "我可以幫你:\n\n"
+        "📍 傳送位置 → 找離你最近的充電站\n"
+        "🔍 打地名(例如「中壢」)→ 查即時空位\n"
+        "🔔 訂閱充電站 → 有空位時主動通知你\n"
+        "🌤️ 查各縣市天氣 + 充電建議\n\n"
+        "👇 點下方選單開始,或直接傳訊息給我試試看!"
+    )
+
 async def handle_events(events: list, acquired_flags: list = None) -> None:
     if acquired_flags is None:
         acquired_flags = [None] * len(events)
@@ -158,6 +169,10 @@ async def handle_events(events: list, acquired_flags: list = None) -> None:
             continue
         user_id = event.get("source", {}).get("userId")
 
+         # ── follow:新用戶加好友 → 歡迎訊息 ──
+        if etype == "follow":
+            await reply_to_line(reply_token, _welcome_message())
+            continue
         # ── postback:Rich Menu / 卡片按鈕 ──
         if etype == "postback":
             data = event.get("postback", {}).get("data", "")
