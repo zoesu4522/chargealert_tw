@@ -169,10 +169,6 @@ async def handle_events(events: list, acquired_flags: list = None) -> None:
             continue
         user_id = event.get("source", {}).get("userId")
 
-         # ── follow:新用戶加好友 → 歡迎訊息 ──
-        if etype == "follow":
-            await reply_to_line(reply_token, _welcome_message())
-            continue
         # ── postback:Rich Menu / 卡片按鈕 ──
         if etype == "postback":
             data = event.get("postback", {}).get("data", "")
