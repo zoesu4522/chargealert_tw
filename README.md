@@ -25,7 +25,7 @@
 
 | 痛點 | 解方 |
 |------|------|
-| 🏝️ **資訊孤島** — 各家業者 App 互不相通 | 串接 TDX 交通部開放資料,單一介面查全台充電站 |
+| 🏝️ 資訊孤島 — 各家 App 互不相通 | 串接 TDX 開放資料,多縣市 On-Demand 查詢、桃園 24/7 持續監控 |
 | 🔄 **被動查詢** — 無法及時掌握動態 | 訂閱制 + 主動推播,空位釋出即時通知 |
 | 🌧️ **多維缺失** — 難綜合天氣與位置 | 整合中央氣象署 CWA,天氣感知充電建議 |
 | ⛽ **資源浪費** — 無效行駛與時間成本 | 即時可用數 + 通知,減少白跑一趟 |
@@ -34,22 +34,17 @@
 
 ## 🏗️ 系統架構
 
-四代理人架構,部署於 AWS EC2,以 Docker Compose 編排:
+![系統架構圖](./docs/architecture.png)
 
-```
-外部資料來源              AWS Cloud (EC2 t3.micro)              使用者
-                    ┌──────────────────────────────┐
-TDX API ──擷取──▶   │  Python Scheduler (4 Agents)   │
-                    │  ├ TDX Watcher    每15分抓取     │
-中央氣象署 API ─查詢▶ │  ├ Push Notifier  狀態變化推播   │  ──▶  LINE
-                    │  ├ ChargeChat     LLM 對話       │       使用者
-LINE Messaging ─推播▶│  └ Weather Advisor 天氣建議      │
-   ◀── Webhook       │                                │
-                    │  MySQL 8.0 (連線資料/歷史/訂閱)   │
-OpenAI/Bedrock ─prompt▶                                │
-                    │  Parameter Store · CloudWatch   │
-                    └──────────────────────────────┘
-```
+四代理人架構,部署於 AWS EC2(t3.micro · 東京),以 Docker Compose 編排,
+Caddy 提供自動 HTTPS,CloudWatch 負責 metrics / logs / alarms 觀測性。
+
+
+### 📐 系統設計圖
+
+| 使用者流程 | 功能模組 |
+|:---:|:---:|
+| ![使用者流程圖](./docs/user-flow.png) | ![功能模組圖](./docs/module-map.png) |
 
 ### 四代理人
 
@@ -98,6 +93,16 @@ OpenAI/Bedrock ─prompt▶                                │
 - **密鑰管理:** AWS Parameter Store 集中管理 API keys / DB 密碼
 - **持續部署:** Git-based workflow(本機驗證 → push → EC2 pull → rebuild)
 
+## 📡 可觀測性 (Observability)
+
+CloudWatch Agent 收集自訂指標,Docker 四容器日誌集中管理,並設置告警:
+
+- **Metrics** — CPU / 記憶體 / **swap** 使用率(自訂 namespace `ChargeAlertTW`)
+- **Logs** — 四容器日誌集中至 `/chargealert/docker-logs`
+- **Alarms** — CPU > 80% 過載告警、5 分鐘內錯誤暴增(>10)告警
+- **實測** — CPU idle ≈ 98.5%、記憶體 ≈ 45%、swap ≈ 22%(2GB RAM 靠 swap 撐 MySQL + Python 的實證)
+
+> 監控是 production 系統的必備,不是奢侈品。
 ---
 
 ## 💡 開發亮點
@@ -108,6 +113,8 @@ OpenAI/Bedrock ─prompt▶                                │
 - **資料一致性** — 釐清 KPI 與趨勢圖的資料來源,將指標聚焦於唯一持續即時監控的桃園,誠實標示資料範圍而非以混合數字撐場面
 - **規則優先 + LLM 後備** — 核心功能用確定性規則保證可用性,LLM 作為增強層,系統不依賴外部配額
 - **系統可觀測性** — 完整的 log 追蹤(抓取 → 快照 → 偵測變化 → 推播 → 冷卻)
+- **抽象設計的價值** — Bedrock 配額受阻時,靠 `_invoke()` 抽象層零改動切換至 OpenAI
+  > 「AI 可以失敗,但系統不能失去方向。」
 
 ---
 
@@ -131,3 +138,5 @@ Copyright (c) 2026 Zoe Su (Su Pin-Ning)
 
 使用、修改或散布本專案程式碼時,**請保留上述著作權聲明與原作者標示**。
 詳見 [LICENSE](./LICENSE)。
+
+
