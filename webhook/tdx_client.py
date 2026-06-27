@@ -21,3 +21,5 @@ def get_tdx_token():
     except requests.exceptions.RequestException as e:
         print(f" 申請通行證失敗:{e}")
         return None
+
+#兩個服務是各自獨立的容器,各自帶自己的 TDX 取 token 工具,不共用 config

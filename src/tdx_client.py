@@ -37,3 +37,4 @@ if __name__ == "__main__":
             print(f" 通行證(前20字):{token[:20]}...")
             print(f"   通行證長度:{len(token)} 字元")
             print("\n 太好了!你的 TDX 金鑰可以用,認證成功!")
+#兩個服務是各自獨立的容器,各自帶自己的 TDX 取 token 工具,不共用 config
