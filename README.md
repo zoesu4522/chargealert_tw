@@ -47,7 +47,7 @@
 
 ## 🏗️ 系統架構
 
-![系統架構圖](./docs/architecture.png)
+![系統架構圖](https://d1h66ke8evp6ux.cloudfront.net/docs/architecture.png)
 
 四代理人架構,部署於 AWS EC2(t3.micro · 東京),以 Docker Compose 編排,
 Caddy 提供自動 HTTPS,CloudWatch 負責 metrics / logs / alarms 觀測性。
@@ -57,14 +57,14 @@ Caddy 提供自動 HTTPS,CloudWatch 負責 metrics / logs / alarms 觀測性。
 
 | 使用者流程 | 功能模組 |
 |:---:|:---:|
-| ![使用者流程圖](./docs/user-flow.png) | ![功能模組圖](./docs/module-map.png) |
+| ![使用者流程圖](https://d1h66ke8evp6ux.cloudfront.net/docs/user-flow.png) | ![功能模組圖](https://d1h66ke8evp6ux.cloudfront.net/docs/module-map.png) |
 
 
 ### LINE Bot 互動展示
 
 | Rich Menu | 訂閱卡片 | 推播通知 |
 |:---:|:---:|:---:|
-| ![Rich Menu](./docs/rich-menu.png) | ![Sub Card](./docs/sub-card.png) | ![Push](./docs/push-notify.png) |
+| ![Rich Menu](https://d1h66ke8evp6ux.cloudfront.net/docs/rich-menu.png) | ![Sub Card](./docs/sub-card.png) | ![Push](./docs/push-notify.png) |
 
 
 ### 四代理人
