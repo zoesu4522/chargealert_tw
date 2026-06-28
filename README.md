@@ -64,7 +64,7 @@ Caddy 提供自動 HTTPS,CloudWatch 負責 metrics / logs / alarms 觀測性。
 
 | Rich Menu | 訂閱卡片 | 推播通知 |
 |:---:|:---:|:---:|
-| ![Rich Menu](https://d1h66ke8evp6ux.cloudfront.net/docs/rich-menu.png) | ![Sub Card](./docs/sub-card.png) | ![Push](./docs/push-notify.png) |
+| ![Rich Menu](https://d1h66ke8evp6ux.cloudfront.net/docs/rich_menu.png) | ![Sub Card](./docs/sub-card.png) | ![Push](./docs/push-notify.png) |
 
 
 ### 四代理人
