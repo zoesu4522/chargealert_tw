@@ -13,6 +13,19 @@
 
 ---
 
+
+## 📑 目錄
+- [專案背景](#-專案背景)
+- [系統架構](#️-系統架構)
+- [技術棧](#️-技術棧)
+- [主要功能](#-主要功能)
+- [部署架構](#-部署架構)
+- [可觀測性](#-可觀測性-observability)
+- [開發亮點](#-開發亮點)
+- [作者](#-作者-author)
+- [授權](#-授權-license)
+
+
 ## 📖 專案背景
 
 剛踏入電動車生活的駕駛,卻發現「找充電站」比加油痛苦十倍 ——
@@ -27,7 +40,7 @@
 |------|------|
 | 🏝️ 資訊孤島 — 各家 App 互不相通 | 串接 TDX 開放資料,多縣市 On-Demand 查詢、桃園 24/7 持續監控 |
 | 🔄 **被動查詢** — 無法及時掌握動態 | 訂閱制 + 主動推播,空位釋出即時通知 |
-| 🌧️ **多維缺失** — 難綜合天氣與位置 | 整合中央氣象署 CWA,天氣感知充電建議 |
+| 🌧️ **單一資訊** — 無天氣 / 位置綜合判斷 | 整合中央氣象署 CWA,天氣感知充電建議 |
 | ⛽ **資源浪費** — 無效行駛與時間成本 | 即時可用數 + 通知,減少白跑一趟 |
 
 ---
@@ -45,6 +58,14 @@ Caddy 提供自動 HTTPS,CloudWatch 負責 metrics / logs / alarms 觀測性。
 | 使用者流程 | 功能模組 |
 |:---:|:---:|
 | ![使用者流程圖](./docs/user-flow.png) | ![功能模組圖](./docs/module-map.png) |
+
+
+### LINE Bot 互動展示
+
+| Rich Menu | 訂閱卡片 | 推播通知 |
+|:---:|:---:|:---:|
+| ![Rich Menu](./docs/rich-menu.png) | ![Sub Card](./docs/sub-card.png) | ![Push](./docs/push-notify.png) |
+
 
 ### 四代理人
 
@@ -66,6 +87,19 @@ Caddy 提供自動 HTTPS,CloudWatch 負責 metrics / logs / alarms 觀測性。
 | **前端** | 原生 HTML/CSS/JS, Chart.js (零 build 靜態儀表板) |
 
 ---
+
+
+## 📊 系統現況
+
+| 指標 | 數字 |
+|------|------|
+| 監控充電樁 | **1577** 支(桃園範圍) |
+| 監控充電站 | **354** 座 |
+| 運作時間 | 24 / 7(自 2026 年 5 月起連續上線) |
+| 月運行成本 | ~ **NT$0**(AWS Free Tier) |
+| TDX 點數用量 | < 月免費額度的 **1.4%** |
+
+
 
 ## ✨ 主要功能
 
@@ -93,6 +127,23 @@ Caddy 提供自動 HTTPS,CloudWatch 負責 metrics / logs / alarms 觀測性。
 - **密鑰管理:** AWS Parameter Store 集中管理 API keys / DB 密碼
 - **持續部署:** Git-based workflow(本機驗證 → push → EC2 pull → rebuild)
 
+
+## 🚀 Quick Start
+
+### 本地開發
+
+```bash
+git clone https://github.com/zoesu4522/chargealert_tw.git
+cd chargealert_tw
+cp .env.example .env
+docker compose up -d
+```
+
+### 部署到 AWS EC2
+
+詳見 [`docs/deployment.md`](./docs/deployment.md)
+
+
 ## 📡 可觀測性 (Observability)
 
 CloudWatch Agent 收集自訂指標,Docker 四容器日誌集中管理,並設置告警:
@@ -117,6 +168,15 @@ CloudWatch Agent 收集自訂指標,Docker 四容器日誌集中管理,並設置
   > 「AI 可以失敗,但系統不能失去方向。」
 
 ---
+
+## 🗺️ Roadmap
+
+- [x] CloudWatch observability(已完成 2026/6)
+- [ ] 全台縣市 Active 監控擴展
+- [ ] ChargeChat 對話深度優化(RAG)
+- [ ] 歷史熱門度分析 + 預測
+- [ ] mysqldump → S3 自動備份
+
 
 ## 👤 作者 Author
 
