@@ -97,6 +97,12 @@ def parse_intent_rule_based(user_text):
     if keyword and any(v in keyword for v in _VAGUE_WORDS):
         return None
 
+    # 抽完仍像「句子」(含贅字)→ 規則太貪心會誤判,交給 LLM 乾淨抽取
+    _FILLER_WORDS = ("幫我", "幫忙", "看看", "請問", "我想", "我要", "想找", "想查",
+                     "那邊", "這邊", "那裡", "現在", "一下", "麻煩", "可以幫")
+    if keyword and any(f in keyword for f in _FILLER_WORDS):
+        return None
+
     if keyword:
         return {"intent": "station", "keyword": keyword}
     return None
@@ -120,6 +126,10 @@ def parse_intent(user_text):
         "- 問整體、全部、總共、現在有多少可用、概況 -> overall\n"
         "- 問某個具體地點或店名(例如「中壢有位子嗎」「江園門市」)-> station,keyword 放那個地名\n"
         "- 打招呼、自我介紹、無關問題 -> other\n"
+        "keyword 要求:\n"
+        "- 只放「地名或店名本身」,去掉所有贅字(幫我、看看、那邊、現在、有沒有位子、嗎…)。\n"
+        "  例如「幫我看看中壢國小那邊有沒有位子」-> keyword 放「中壢」;「台茂現在有位子嗎」-> keyword 放「台茂」。\n"
+        "- 若是學校、公園、地標等不是充電站名稱的地點,改放它所在的行政區或地名(例如「中壢國小」->「中壢」)。\n"
     )
     try:
         raw = _invoke(system, user_text, max_tokens=120)
