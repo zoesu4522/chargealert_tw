@@ -14,8 +14,9 @@ GREEN = "#2E7D32"
 GREEN_LIGHT = "#F1F8F1"
 
 # LINE Flex hero 圖(電動車充電示意圖,需公開 HTTPS URL,由 Caddy /img/ 提供)
-HERO_IMAGE_URL = "https://chargealert.zoesu.dev/img/ev_hero.jpg"
-IMG_BASE = "https://chargealert.zoesu.dev/img"
+import os
+IMG_BASE = os.getenv("IMG_BASE_URL", "https://d1h66ke8evp6ux.cloudfront.net/img")
+HERO_IMAGE_URL = f"{IMG_BASE}/ev_hero.jpg"
 
 # 有專屬地標圖的縣市(其餘 fallback 用 ev_hero 通用圖)
 CITY_HERO_CODES = {"Taipei", "NewTaipei", "Taoyuan", "HsinchuCity",
