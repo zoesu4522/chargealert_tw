@@ -9,7 +9,7 @@
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED)
 ![AWS](https://img.shields.io/badge/AWS-EC2-FF9900)
 
-**🔗 線上展示:** [chargealert.zoesu.dev](https://chargealert.zoesu.dev) ｜ **📊 即時監控儀表板:** [/dashboard](https://chargealert.zoesu.dev/dashboard/)
+**🔗 線上展示:** [@chargealert](https://lin.ee/nYbge45) ｜ **📊 即時監控儀表板:** [/dashboard](https://chargealert.zoesu.dev/dashboard/)
 
 ---
 
@@ -183,7 +183,7 @@ CloudWatch Agent 收集自訂指標,Docker 四容器日誌集中管理,並設置
 **蘇品寧 (Zoe Su)**
 
 - GitHub: [@zoesu4522](https://github.com/zoesu4522)
-- 專案展示 (Live Demo): [chargealert.zoesu.dev](https://chargealert.zoesu.dev)
+- 專案展示 (Live Demo): [@chargealert](https://lin.ee/nYbge45)
 - 個人網站: [zoesu.dev](https://www.zoesu.dev)
 
 本專案為個人獨立開發之作品,從系統架構設計、後端 API、資料庫、
