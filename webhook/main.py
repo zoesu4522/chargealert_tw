@@ -75,8 +75,19 @@ def _format_overall_facts(stats):
 
 _NEARBY_TRIGGERS = ("附近", "離我最近", "離我近", "定位", "我的位置", "最近的站", "附近的站", "附近充電")
 
-def build_answer(user_text: str):
+def build_answer(user_text: str, user_id: str = None):
     t = (user_text or "").strip()
+    _MENU_TEXT_MAP = {
+        "我的縣市": "action=home",
+        "選縣市": "action=menu_charging",
+        "選縣市充電": "action=menu_charging",
+        "各地天氣": "action=menu_weather",
+        "整體統計": "action=overall",
+        "我的訂閱": "action=my_subs",
+        "關於": "action=about",
+    }
+    if t in _MENU_TEXT_MAP:
+        return postback_handler.handle_postback(_MENU_TEXT_MAP[t], user_id)
     # 定位引導:想找附近 → 引導傳 LINE 位置訊息
     if any(k in t for k in _NEARBY_TRIGGERS):
         return ("想找離你最近的充電站嗎?📍\n"
@@ -216,7 +227,7 @@ async def handle_events(events: list, acquired_flags: list = None) -> None:
                 await reply_to_line(reply_token, {"type": "text", "text": "⏳ 操作太快,請稍候一下再點 🙏"})
                 continue
             try:
-                answer = build_answer(user_text)
+                answer = build_answer(user_text, user_id)
             except Exception as e:
                 logger.exception("處理訊息失敗: %s", e)
                 answer = "抱歉,系統忙碌中,請稍後再試一次 🙏"
